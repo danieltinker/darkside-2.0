@@ -32,8 +32,8 @@ function Decryptor({ rn }: { rn: ReconciledNode }) {
           </tr>
         </thead>
         <tbody>
-          {d.decrypted_strings.map((s, i) => (
-            <tr key={i} className="align-top">
+          {d.decrypted_strings.map((s) => (
+            <tr key={s.ciphertext} className="align-top">
               <td className="max-w-[140px] truncate py-0.5 pr-2 text-ink-muted" title={s.ciphertext}>
                 {s.ciphertext}
               </td>

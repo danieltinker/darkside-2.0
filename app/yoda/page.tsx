@@ -18,6 +18,10 @@ import { PayloadCard } from "@/components/PayloadCard";
 import { NodeHumanControl, HumanReviewPanel } from "@/components/HumanReview";
 import { TopNav } from "@/components/TopNav";
 
+// Seed the known-URL DB once when the bundle is first evaluated (before any
+// render reconciles), so server and client lookups agree.
+ensureSeeded();
+
 function ResetButton() {
   return (
     <button
@@ -218,7 +222,6 @@ function ReconciledMode() {
 }
 
 export default function YodaPage() {
-  ensureSeeded();
   const s = useSession();
 
   return (

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useSession, session } from "@/lib/session";
 import {
@@ -16,6 +15,10 @@ import { MissionCard } from "@/components/MissionCard";
 import { PayloadCard } from "@/components/PayloadCard";
 import { TopNav } from "@/components/TopNav";
 import { StatusChip } from "@/components/StatusChip";
+
+// Seed the known-URL DB once when the bundle is first evaluated (before any
+// render reconciles), so server and client lookups agree.
+ensureSeeded();
 
 function NoMission() {
   return (
@@ -83,7 +86,8 @@ function EvidenceSummary() {
 }
 
 function WorkingMode() {
-  const [ran, setRan] = useState(() => session.get().status === "DYNAMIC_RUNNING");
+  const s = useSession();
+  const ran = s.status === "DYNAMIC_RUNNING";
   const mission = readMissionForVader(missionContext.mission_id) ?? missionContext;
 
   if (!ran) {
@@ -108,10 +112,7 @@ function WorkingMode() {
             </span>
           </div>
           <button
-            onClick={() => {
-              session.runDynamic();
-              setRan(true);
-            }}
+            onClick={() => session.runDynamic()}
             className="rounded-lg border border-vader/50 bg-vader/15 px-5 py-2.5 font-mono text-[13px] font-semibold text-vader transition-colors hover:bg-vader/25"
           >
             ▶ Run dynamic experiments (Frida)
@@ -221,7 +222,6 @@ function EvidenceSentMode() {
 }
 
 export default function VaderPage() {
-  ensureSeeded();
   const s = useSession();
 
   return (
