@@ -1,3 +1,10 @@
+// FORWARD SCAFFOLDING (not yet wired into the live UI path).
+// This is the multi-rubric aggregation layer: given each chain's already-computed
+// binary confirmation, sum the confirmed chains into the app total. Yoda will call
+// this once multiple rubrics exist. The current single-chain live scoring lives in
+// lib/score.ts (investigationScore / scoreAfterOverride) and reconcile.ts; keep the
+// binary-per-chain rule identical across both.
+
 export type ChainResult = { chain_id: string; points: number; confirmed: boolean };
 
 // Binary per chain: a chain contributes its full points only if fully confirmed,

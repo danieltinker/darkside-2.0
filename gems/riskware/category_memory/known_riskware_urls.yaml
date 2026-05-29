@@ -1,3 +1,5 @@
+# NOTE: until the runtime loader consumes this, it mirrors knownUrlSeed in lib/mock.ts.
+# Keep the two in sync (the TS seed is the one currently used by the app).
 version: 0.1.0
 entries:
   - url: https://go.offerwall-aff.net/r?o=5120&aff=spinpush

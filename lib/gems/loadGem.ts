@@ -1,5 +1,5 @@
 import "server-only";
-import { promises as fsp, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
 import {
@@ -32,7 +32,3 @@ export function loadCategory(categoryId: string): Category {
   return CategorySchema.parse(raw);
 }
 
-// Raw markdown gem text (the agent instruction asset).
-export async function loadGemText(rel: string): Promise<string> {
-  return fsp.readFile(path.join(GEMS, rel), "utf8");
-}

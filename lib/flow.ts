@@ -12,12 +12,6 @@ import type { FlowGraph } from "./contract";
 // only Vader can flip it at runtime.
 // =====================================================================
 
-export const IOC = {
-  ioc_id: "mmp_cloaking" as const,
-  name: "MMP attribution cloaking",
-  points_if_strong: 8 as const,
-};
-
 // The cleartext the deobf node recovers — also the runtime found_url.
 export const AFFILIATE_URL =
   "https://go.offerwall-aff.net/r?o=8821&aff=adtrack&sub=mmp";

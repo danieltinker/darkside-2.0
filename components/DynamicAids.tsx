@@ -22,8 +22,8 @@ export function DynamicAids({ aids }: { aids: NonNullable<MissionContext["dynami
         <div>
           <div className="text-ink-faint">mock responses</div>
           <div className="text-[14px] text-ink-primary">{mocks.length}</div>
-          {mocks.map((m, i) => (
-            <div key={i} className="mt-0.5 text-ink-muted">{m.label}</div>
+          {mocks.map((m) => (
+            <div key={m.label} className="mt-0.5 text-ink-muted">{m.label}</div>
           ))}
         </div>
         <div>
