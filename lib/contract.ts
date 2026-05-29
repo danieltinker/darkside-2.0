@@ -75,6 +75,10 @@ export type FlowNode = {
   produces_url?: boolean; // the node whose output is the affiliate URL (drives known-URL lookup)
   decryptor?: Decryptor; // present on deobf/decrypt nodes
   native_file?: NativeFile; // present on native dispatch nodes
+  behavioral_role?: string;
+  phase?: string;
+  boundary?: string | null; // scoring boundary this node serves
+  flexible_match?: { examples: string[]; match_type: string };
 };
 
 export type EdgeRelation = "calls" | "returns" | "data_to" | "triggers";
@@ -97,7 +101,19 @@ export type MissionContext = {
   sent_to: "darth_vader";
   case_identity: CaseIdentity;
   queue_lock: QueueLock;
-  ioc: { ioc_id: "mmp_cloaking"; name: string; points_if_strong: 8 };
+  rubric: {
+    category_id: string;
+    rubric_id: string;
+    chain_id: string;
+    name: string;
+    points_if_strong: 8 | 4 | 2;
+    gem_version: string;
+  };
+  dynamic_aids?: {
+    frida_hooks?: { node_id: string; target: string }[];
+    mock_responses?: { label: string; when: string; payload: unknown }[];
+    decryptors?: Decryptor[];
+  };
   flow: FlowGraph; // with Yoda's static_confirmed flags set
   status: MissionStatus;
   created_at: string;
