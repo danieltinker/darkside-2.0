@@ -1,0 +1,38 @@
+import Link from "next/link";
+
+const LINKS = [
+  { href: "/", label: "Overview", key: "home" },
+  { href: "/yoda", label: "Yoda · static", key: "yoda" },
+  { href: "/vader", label: "Vader · dynamic", key: "vader" },
+] as const;
+
+export function TopNav({ active }: { active: "home" | "yoda" | "vader" }) {
+  return (
+    <header className="sticky top-0 z-20 border-b border-edge bg-bg-base/85 backdrop-blur">
+      <div className="mx-auto flex h-12 max-w-6xl items-center justify-between px-5">
+        <Link href="/" className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-accent-green shadow-glow" />
+          <span className="font-mono text-[13px] font-semibold tracking-wide text-ink-primary">
+            darkside
+          </span>
+          <span className="font-mono text-[11px] text-ink-faint">/ mmp-uncloaking</span>
+        </Link>
+        <nav className="flex items-center gap-1">
+          {LINKS.map((l) => (
+            <Link
+              key={l.key}
+              href={l.href}
+              className={`rounded-md px-2.5 py-1 font-mono text-[12px] transition-colors ${
+                active === l.key
+                  ? "bg-bg-raised text-ink-primary"
+                  : "text-ink-muted hover:text-ink-secondary"
+              }`}
+            >
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
+    </header>
+  );
+}
