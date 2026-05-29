@@ -1,11 +1,21 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession, session } from "@/lib/session";
-import { missionContext, evidenceReturn, artifactContent } from "@/lib/mock";
+import {
+  missionContext,
+  evidenceReturn,
+  artifactContent,
+  extractedPayloads,
+  foundUrls,
+} from "@/lib/mock";
 import { reconcile } from "@/lib/reconcile";
 import { ensureSeeded } from "@/lib/seed";
+import { recordTpMany, snapshot } from "@/lib/known-urls";
 import { MissionCard } from "@/components/MissionCard";
+import { PayloadCard } from "@/components/PayloadCard";
+import { NodeHumanControl, HumanReviewPanel } from "@/components/HumanReview";
 import { TopNav } from "@/components/TopNav";
 
 function ResetButton() {
@@ -135,6 +145,24 @@ function ReconciledMode() {
     humanConfirmations: s.human?.node_confirmations,
     verdictOverride: s.human?.verdict_override,
   });
+
+  // Known-URL write-back: when the case reaches confirmed_tp (agent score or
+  // human flip), record every found URL. Records once; the next render sees
+  // the URL as a known hit (badge upgrades from domain → exact URL).
+  const recorded = useRef(false);
+  const [dbNote, setDbNote] = useState<{ addedCount: number; total: number } | null>(null);
+  useEffect(() => {
+    if (recon.effectiveVerdict === "confirmed_tp" && !recorded.current) {
+      const res = recordTpMany(
+        foundUrls,
+        missionContext.mission_id,
+        missionContext.case_identity.package_name,
+      );
+      recorded.current = true;
+      setDbNote({ addedCount: res.addedCount, total: snapshot().length });
+    }
+  }, [recon.effectiveVerdict]);
+
   return (
     <main className="mx-auto max-w-6xl px-5 py-6">
       <div className="mb-4 flex items-end justify-between gap-4">
@@ -146,17 +174,44 @@ function ReconciledMode() {
             Reconciled proof — {missionContext.case_identity.package_name}
           </h1>
           <p className="mt-1 max-w-2xl text-[13px] text-ink-secondary">
-            Vader returned evidence. Every node now carries a static signature and
-            dynamic proof; the three boundary nodes gate the strong-8 score.
+            Vader returned evidence. Verify the static↔dynamic chain node by
+            node and flip the verdict if the proof doesn&apos;t convince you — the
+            score auto-updates.
           </p>
         </div>
         <ResetButton />
       </div>
+
+      {extractedPayloads.length > 0 && (
+        <div className="mb-5">
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-muted">
+            Extracted payloads
+          </p>
+          <div className="grid gap-3">
+            {extractedPayloads.map((p) => (
+              <PayloadCard key={p.payload_id} payload={p} />
+            ))}
+          </div>
+        </div>
+      )}
+
       <MissionCard
         mission={missionContext}
         recon={recon}
         artifactContent={artifactContent}
         status="SCORED"
+        renderHumanControls={(rn) => (
+          <NodeHumanControl rn={rn} human={s.human} onSet={session.setNodeConfirmation} />
+        )}
+        footerExtra={
+          <HumanReviewPanel
+            recon={recon}
+            human={s.human}
+            onFlip={session.flipVerdict}
+            onClear={session.clearHuman}
+            dbNote={dbNote}
+          />
+        }
       />
     </main>
   );

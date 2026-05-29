@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { HumanReview, MissionStatus } from "./contract";
+import type { HumanReview, MissionStatus, NodeConfirmation, Verdict } from "./contract";
 import { missionContext, evidenceReturn } from "./mock";
 import { sendMission as bridgeSendMission, sendEvidence as bridgeSendEvidence } from "./bridge";
 
@@ -45,6 +45,17 @@ export function useSession(): SessionState {
   return useSyncExternalStore(subscribe, getSnapshot, () => INITIAL);
 }
 
+function ensureHuman(): HumanReview {
+  return (
+    state.human ?? {
+      reviewer: "analyst",
+      trace_confirmed: false,
+      node_confirmations: {},
+      at: new Date().toISOString(),
+    }
+  );
+}
+
 export const session = {
   get: () => state,
 
@@ -73,8 +84,31 @@ export const session = {
   },
 
   // Yoda reconcile / human-in-the-loop
-  applyHuman(human: HumanReview) {
-    state = { ...state, human, status: "SCORED" };
+  setNodeConfirmation(nodeId: string, call: NodeConfirmation | null) {
+    const h = ensureHuman();
+    const node_confirmations = { ...h.node_confirmations };
+    if (call === null) delete node_confirmations[nodeId];
+    else node_confirmations[nodeId] = call;
+    state = {
+      ...state,
+      status: "SCORED",
+      human: { ...h, node_confirmations, at: new Date().toISOString() },
+    };
+    emit();
+  },
+  flipVerdict(verdict: Verdict, reason?: string) {
+    const h = ensureHuman();
+    state = {
+      ...state,
+      status: "SCORED",
+      human: {
+        ...h,
+        verdict_override: verdict,
+        trace_confirmed: verdict === "confirmed_tp",
+        reason,
+        at: new Date().toISOString(),
+      },
+    };
     emit();
   },
   clearHuman() {
