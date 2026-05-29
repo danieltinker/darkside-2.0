@@ -1,0 +1,12 @@
+rubric_id: attribution_gated_webview_uncloaking
+strategy_version: 0.1.0
+agent_instruction: Prove a behavioral chain (signal -> gate -> runtime destination -> in-app render), not a specific API chain. Meet in the middle from sources and sinks.
+static_potential_scoring:   # GATE 2: routing only — awards 0 rubric points
+  attribution_source_found: 15
+  field_extraction_found: 15
+  conditional_gate_found: 20
+  url_builder_or_decryptor_found: 20
+  browser_sink_found: 20
+  static_source_to_sink_dataflow_found: 30
+  known_bad_or_affiliate_domain_found: 15
+dynamic_escalation_threshold: 60

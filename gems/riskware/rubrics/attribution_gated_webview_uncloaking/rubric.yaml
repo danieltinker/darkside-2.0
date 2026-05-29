@@ -1,0 +1,15 @@
+rubric_id: attribution_gated_webview_uncloaking
+gem_type: rubric
+category: riskware
+name: Attribution-Gated WebView Uncloaking
+version: 0.1.0
+status: active
+severity: high
+required_behavioral_boundaries: [acquisition_signal, cloaking_gate, destination_resolution, render]
+flexible_anchor_signals:
+  attribution_callbacks: { examples: [onConversionDataSuccess, AppsFlyerConversionListener, onAttributionChanged, InstallReferrerClient], match_type: semantic_or_api_family }
+  attribution_fields:    { examples: [af_status, media_source, campaign, referrer, url, dl, deep_link_value], match_type: fuzzy_key_and_dataflow }
+  gate_values:           { examples: [Organic, Non-organic, affiliate, targeted_geo, reviewer, sandbox], match_type: semantic_condition }
+  destination_resolution: { examples: [Uri.parse, buildUpon, JSONObject.optString, Base64.decode, XOR, 'HTTP 302 Location'], match_type: semantic_or_api_family }
+  browser_sinks:         { examples: [WebView.loadUrl, WebView.postUrl, evaluateJavascript, CustomTabsIntent.launchUrl], match_type: sink_family }
+important_note: Exact method names are high-value anchor hints but are NOT required. The rubric is behavior-based.

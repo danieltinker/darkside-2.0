@@ -1,0 +1,14 @@
+rubric_id: attribution_gated_webview_uncloaking
+contract_version: 0.1.0
+principle: Match behavior, not names. Anchors are hints; prove dataflow across boundaries.
+strong_8_requires:
+  - { id: acquisition_signal_enters_app_logic, boundary: acquisition_signal, static_or_dynamic: either_but_dynamic_preferred }
+  - { id: destination_resolved_at_runtime,     boundary: destination_resolution, static_or_dynamic: dynamic_required }
+  - { id: destination_rendered_in_app,         boundary: render, static_or_dynamic: dynamic_required }
+reject_strong_if:
+  - no dataflow between attribution/referrer signal and browser sink
+  - destination is a fixed first-party URL
+  - only organic/benign branch executes under non-organic mock
+artifact_requirements:
+  for_strong: [callback_trace, destination_value_capture, browser_sink_trace, screenshot_or_render_confirmation]
+learning_candidate_triggers: [new_attribution_provider, new_destination_field, new_obfuscation_method, new_in_app_browser_sink, same_behavior_different_names]

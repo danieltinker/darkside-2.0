@@ -1,0 +1,13 @@
+category_id: riskware
+gem_type: category
+name: Riskware Category Gem
+version: 0.1.0
+status: active
+operating_model: { static_owner: yoda, dynamic_owner: darth_vader, bridge: pixelbridge, human_review_required: true }
+dispatch_gate: { metadata_score_gte: 8 }     # GATE 1: Yoda dispatches Sky Walker only when metadata_score >= 8
+scoring_model: { strong: 8, medium: 4, weak: 2, confirmed_tp_threshold: 8 }
+rubrics:
+  - rubric_id: attribution_gated_webview_uncloaking
+    status: active
+    skywalker_gem: gems/riskware/skywalker.gem.md
+learning_policy: { canonical_gems_mutable_by_agent: false, human_approval_required_for_promotion: true, auto_promote: false }

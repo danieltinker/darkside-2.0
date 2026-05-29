@@ -1,0 +1,14 @@
+version: 0.1.0
+entries:
+  - url: https://go.offerwall-aff.net/r?o=5120&aff=spinpush
+    domain: go.offerwall-aff.net
+    first_seen_mission_id: m_5512
+    package_name: com.luckyspin.cash
+    added_at: "2026-04-18T09:12:00Z"
+    hits: 5
+  - url: https://go.offerwall-aff.net/r?o=7740&aff=adtrack
+    domain: go.offerwall-aff.net
+    first_seen_mission_id: m_6033
+    package_name: com.dailyscratch.win
+    added_at: "2026-05-02T14:40:00Z"
+    hits: 2

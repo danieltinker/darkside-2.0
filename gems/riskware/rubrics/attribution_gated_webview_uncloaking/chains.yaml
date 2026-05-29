@@ -1,0 +1,11 @@
+rubric_id: attribution_gated_webview_uncloaking
+chains_version: 0.1.0
+chains:
+  - chain_id: attribution_gated_webview_uncloaking_strong_8
+    name: Full attribution-gated WebView uncloaking
+    strength: strong
+    points: 8
+    score_mode: all_or_nothing
+    required_boundaries: [acquisition_signal, destination_resolution, render]
+    required_nodes: [n1_callback, n2_parse, n3_load]
+# NOTE: 4-pt / 2-pt chains appended later by the user. aggregateScore sums confirmed chains.
