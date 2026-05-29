@@ -4,6 +4,7 @@ import type { Reconciliation, ReconciledNode } from "@/lib/reconcile";
 import type { ArtifactContent } from "@/lib/mock";
 import { CallGraph } from "./CallGraph";
 import { StatusChip, type ChipTone } from "./StatusChip";
+import { BoundaryTable } from "./BoundaryTable";
 
 const STATUS_TONE: Record<MissionStatus, ChipTone> = {
   LOCKED: "neutral",
@@ -152,6 +153,12 @@ export function MissionCard({
           showDynamic={showDynamic}
           renderHumanControls={renderHumanControls}
         />
+      </div>
+      <div className="border-t border-edge px-5 py-4">
+        <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-muted">
+          Boundary proof
+        </p>
+        <BoundaryTable recon={recon} />
       </div>
       <ScoringFooter recon={recon} footerExtra={footerExtra} />
     </div>
