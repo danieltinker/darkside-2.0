@@ -105,8 +105,8 @@ export function reconcile(
   }));
 
   const chain = {
-    ioc_id: mission.ioc.ioc_id,
-    points_if_strong: mission.ioc.points_if_strong,
+    ioc_id: mission.rubric.chain_id,
+    points_if_strong: mission.rubric.points_if_strong,
     graph: mission.flow,
     evidence: ev?.node_evidence ?? [],
     humanConfirmations: opts.humanConfirmations,
@@ -120,7 +120,7 @@ export function reconcile(
   ).length;
 
   const score = opts.verdictOverride
-    ? scoreAfterOverride(mission.ioc.points_if_strong, opts.verdictOverride)
+    ? scoreAfterOverride(mission.rubric.points_if_strong, opts.verdictOverride)
     : investigationScore([chain]).total;
 
   // URL intel for the produces_url node (drives the known-URL badge).
@@ -156,7 +156,7 @@ export function reconcile(
     effectiveVerdict,
     confirmed,
     score,
-    maxScore: mission.ioc.points_if_strong,
+    maxScore: mission.rubric.points_if_strong,
     urlIntel,
   };
 }

@@ -9,7 +9,7 @@ import type {
   KnownRiskwareUrl,
   Artifact,
 } from "./contract";
-import { mmpCloakingGraph, IOC, AFFILIATE_URL } from "./flow";
+import { mmpCloakingGraph, AFFILIATE_URL } from "./flow";
 import { stampMission, stampEvidence } from "./bridge";
 import { checksumHex } from "./util";
 import { domainOf, normalizeUrl } from "./known-urls";
@@ -277,7 +277,14 @@ export const missionContext: MissionContext = stampMission({
   sent_to: "darth_vader",
   case_identity: caseIdentity,
   queue_lock: queueLock,
-  ioc: { ioc_id: IOC.ioc_id, name: IOC.name, points_if_strong: IOC.points_if_strong },
+  rubric: {
+    category_id: "riskware",
+    rubric_id: "attribution_gated_webview_uncloaking",
+    chain_id: "attribution_gated_webview_uncloaking_strong_8",
+    name: "Attribution-Gated WebView Uncloaking",
+    points_if_strong: 8,
+    gem_version: "0.1.0",
+  },
   flow: mmpCloakingGraph,
   status: "MISSION_SENT",
   created_at: "2026-05-29T08:02:00Z",

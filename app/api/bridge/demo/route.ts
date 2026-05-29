@@ -5,7 +5,8 @@ import {
   packEvidenceBundle,
   importBundle,
 } from "@/lib/bridge-fs";
-import { missionContext, evidenceReturn, artifactContent, extractedPayloads } from "@/lib/mock";
+import { evidenceReturn, artifactContent, extractedPayloads } from "@/lib/mock";
+import { getCompiledMission } from "@/lib/gems/goldenMission";
 
 // Demo fast-forward for the bridge explorer: runs the FULL real round trip
 // in-process — produce → pack → import → produce → pack → import — using the
@@ -15,9 +16,10 @@ export const dynamic = "force-dynamic";
 
 export async function POST() {
   try {
+    const mission = getCompiledMission();
     // Yoda produces + the mission bundle is carried to Vader and imported.
-    await produceMission(missionContext);
-    const missionBundle = await packMissionBundle(missionContext.mission_id);
+    await produceMission(mission);
+    const missionBundle = await packMissionBundle(mission.mission_id);
     if (!missionBundle) throw new Error("failed to pack mission bundle");
     const importMission = await importBundle(missionBundle);
 

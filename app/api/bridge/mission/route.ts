@@ -1,16 +1,16 @@
 import { produceMission } from "@/lib/bridge-fs";
-import { missionContext } from "@/lib/mock";
+import { getCompiledMission } from "@/lib/gems/goldenMission";
 
-// Yoda produces the MissionContext into bridge/yoda_outbox. The golden case is
-// the source of truth for the MVP; a real build would assemble this from the
-// analyst's static findings.
+// Yoda produces the MissionContext into bridge/yoda_outbox. The MissionContext
+// is now compiled from gem files rather than hardcoded.
 export const dynamic = "force-dynamic";
 
 export async function POST() {
-  await produceMission(missionContext);
+  const mission = getCompiledMission();
+  await produceMission(mission);
   return Response.json({
     ok: true,
-    mission_id: missionContext.mission_id,
-    checksum: missionContext.checksum,
+    mission_id: mission.mission_id,
+    checksum: mission.checksum,
   });
 }

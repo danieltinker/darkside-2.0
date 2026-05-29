@@ -55,7 +55,7 @@ function Header({
         <StatusChip tone={STATUS_TONE[status]} dot label={status.replace(/_/g, " ")} />
         <StatusChip
           tone="green"
-          label={`${mission.ioc.name.includes("cloak") ? "MMP Cloaking" : mission.ioc.name} · Strong ${mission.ioc.points_if_strong}`}
+          label={`${mission.rubric.name.includes("cloak") ? "MMP Cloaking" : mission.rubric.name} · Strong ${mission.rubric.points_if_strong}`}
         />
       </div>
     </div>
