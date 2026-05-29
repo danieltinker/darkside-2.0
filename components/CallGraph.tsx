@@ -1,8 +1,12 @@
+"use client";
+
+import { useState } from "react";
 import type { ReactNode } from "react";
 import type { Reconciliation, ReconciledNode } from "@/lib/reconcile";
 import type { ArtifactContent } from "@/lib/mock";
 import type { FlowEdge, EdgeRelation } from "@/lib/contract";
 import { NodeCard } from "./NodeCard";
+import { ActionSummary } from "./ActionSummary";
 
 const STAGE_LABEL: Record<1 | 2 | 3, string> = {
   1: "Stage 1",
@@ -84,33 +88,71 @@ export function CallGraph({
   showDynamic?: boolean;
   renderHumanControls?: (rn: ReconciledNode) => ReactNode;
 }) {
+  const [view, setView] = useState<"summary" | "trace">("summary");
   const ordered = recon.nodes;
+
   return (
     <div className="space-y-0">
-      {ordered.map((rn, i) => {
-        const prev = ordered[i - 1];
-        const isStageStart = !prev || prev.node.stage !== rn.node.stage;
-        const band = recon.bands.find((b) => b.stage === rn.node.stage)!;
-        const next = ordered[i + 1];
-        const relation = next
-          ? relationBetween(edges, rn.node.node_id, next.node.node_id)
-          : undefined;
-        return (
-          <div key={rn.node.node_id}>
-            {isStageStart && (
-              <BandHeader stage={band.stage} title={band.title} count={band.nodes.length} />
-            )}
-            <NodeCard
-              rn={rn}
-              artifactContent={artifactContent}
-              urlIntel={rn.node.produces_url ? recon.urlIntel : undefined}
-              showDynamic={showDynamic}
-              humanControls={renderHumanControls?.(rn)}
-            />
-            {next && <Connector relation={relation} />}
-          </div>
-        );
-      })}
+      {/* Altitude toggle */}
+      <div className="mb-3 flex items-center gap-1 rounded-lg border border-edge bg-bg-raised p-1 w-fit">
+        <button
+          onClick={() => setView("summary")}
+          className={`rounded-md px-3 py-1 text-[12px] font-medium transition-colors ${
+            view === "summary"
+              ? "bg-bg-card text-ink-primary shadow-sm"
+              : "text-ink-muted hover:text-ink-secondary"
+          }`}
+        >
+          Actions
+        </button>
+        <button
+          onClick={() => setView("trace")}
+          className={`rounded-md px-3 py-1 text-[12px] font-medium transition-colors ${
+            view === "trace"
+              ? "bg-bg-card text-ink-primary shadow-sm"
+              : "text-ink-muted hover:text-ink-secondary"
+          }`}
+        >
+          Trace
+        </button>
+      </div>
+
+      {view === "summary" ? (
+        <ActionSummary
+          recon={recon}
+          onJump={(id) => {
+            setView("trace");
+            requestAnimationFrame(() =>
+              document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" }),
+            );
+          }}
+        />
+      ) : (
+        ordered.map((rn, i) => {
+          const prev = ordered[i - 1];
+          const isStageStart = !prev || prev.node.stage !== rn.node.stage;
+          const band = recon.bands.find((b) => b.stage === rn.node.stage)!;
+          const next = ordered[i + 1];
+          const relation = next
+            ? relationBetween(edges, rn.node.node_id, next.node.node_id)
+            : undefined;
+          return (
+            <div key={rn.node.node_id}>
+              {isStageStart && (
+                <BandHeader stage={band.stage} title={band.title} count={band.nodes.length} />
+              )}
+              <NodeCard
+                rn={rn}
+                artifactContent={artifactContent}
+                urlIntel={rn.node.produces_url ? recon.urlIntel : undefined}
+                showDynamic={showDynamic}
+                humanControls={renderHumanControls?.(rn)}
+              />
+              {next && <Connector relation={relation} />}
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }
