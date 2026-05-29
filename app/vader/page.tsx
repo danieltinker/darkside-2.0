@@ -1,50 +1,55 @@
 "use client";
 
-import Link from "next/link";
-import { useSession, session } from "@/lib/session";
-import {
-  missionContext,
-  evidenceReturn,
-  artifactContent,
-  extractedPayloads,
-} from "@/lib/mock";
-import { readMissionForVader } from "@/lib/bridge";
+import { useState } from "react";
+import { useBridge, type ImportResultDTO } from "@/lib/session";
 import { reconcile } from "@/lib/reconcile";
 import { ensureSeeded } from "@/lib/seed";
 import { MissionCard } from "@/components/MissionCard";
 import { PayloadCard } from "@/components/PayloadCard";
 import { TopNav } from "@/components/TopNav";
 import { StatusChip } from "@/components/StatusChip";
+import { DevicePanel, ExportButton, ImportButton, ImportReceipt } from "@/components/DeviceBar";
+import type { EvidenceReturn } from "@/lib/contract";
 
-// Seed the known-URL DB once when the bundle is first evaluated (before any
-// render reconciles), so server and client lookups agree.
+// Seed the known-URL DB once so server and client lookups agree.
 ensureSeeded();
 
-function NoMission() {
+type Bridge = ReturnType<typeof useBridge>;
+
+// ---- Phase 0: nothing carried in yet. -------------------------------------
+function NoMission({ b }: { b: Bridge }) {
+  const [imp, setImp] = useState<ImportResultDTO | null>(null);
+  async function onImport(f: File) {
+    setImp(await b.importFile(f));
+  }
   return (
     <main className="mx-auto max-w-3xl px-5 py-16">
       <div className="rounded-2xl border border-dashed border-edge bg-bg-card/50 p-10 text-center">
         <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-vader">
           Darth Vader · dynamic lab
         </p>
-        <h1 className="mt-2 text-xl font-semibold text-ink-primary">No mission in the inbox</h1>
+        <h1 className="mt-2 text-xl font-semibold text-ink-primary">No mission on this machine</h1>
         <p className="mx-auto mt-2 max-w-md text-[13px] text-ink-secondary">
-          Yoda hasn&apos;t shipped a MissionContext over PixelBridge yet. Open the
-          Yoda console, confirm the static chain, and send the mission.
+          This lab is airgapped. Import the MissionContext bundle Yoda exported and carried over
+          on the device — it lands in this machine&apos;s bridge/vader_inbox.
         </p>
-        <Link
-          href="/yoda"
-          className="mt-5 inline-block rounded-lg border border-yoda/50 bg-yoda/15 px-5 py-2.5 font-mono text-[13px] font-semibold text-yoda transition-colors hover:bg-yoda/25"
-        >
-          ← Go to Yoda
-        </Link>
+        <div className="mt-6 flex justify-center">
+          <ImportButton
+            label="⬆ Import mission bundle"
+            onFile={onImport}
+            hint="darkbridge-mission-<id>.json from the device"
+          />
+        </div>
+        <div className="mx-auto mt-4 max-w-md">
+          <ImportReceipt result={imp} />
+        </div>
       </div>
     </main>
   );
 }
 
-function EvidenceSummary() {
-  const native = evidenceReturn.native_files.find((n) => n.confirmed_active);
+function EvidenceSummary({ evidence }: { evidence: EvidenceReturn }) {
+  const native = evidence.native_files.find((n) => n.confirmed_active);
   return (
     <div className="mb-5 grid gap-3 md:grid-cols-3">
       <div className="rounded-xl border border-edge bg-bg-card/70 p-4">
@@ -52,7 +57,7 @@ function EvidenceSummary() {
           Experiment iterations
         </span>
         <div className="mt-1 font-mono text-2xl font-semibold text-ink-primary">
-          {evidenceReturn.iterations}
+          {evidence.iterations}
         </div>
         <p className="mt-0.5 text-[11.5px] text-ink-muted">all boundary nodes confirmed</p>
       </div>
@@ -74,7 +79,7 @@ function EvidenceSummary() {
           Affiliate URLs observed
         </span>
         <ul className="mt-1.5 space-y-1">
-          {evidenceReturn.found_urls.map((u) => (
+          {evidence.found_urls.map((u) => (
             <li key={u} className="break-all font-mono text-[11px] text-accent-red">
               {u}
             </li>
@@ -85,10 +90,12 @@ function EvidenceSummary() {
   );
 }
 
-function WorkingMode() {
-  const s = useSession();
-  const ran = s.status === "DYNAMIC_RUNNING";
-  const mission = readMissionForVader(missionContext.mission_id) ?? missionContext;
+// ---- Phase 1/2: mission imported → re-confirm, run, export evidence. ------
+function WorkingMode({ b }: { b: Bridge }) {
+  const mission = b.data!.mission!;
+  const evidence = b.data?.evidence ?? null;
+  const artifactContent = b.data!.artifactContent;
+  const ran = !!evidence;
 
   if (!ran) {
     const recon = reconcile(mission, undefined, { includeDynamic: false });
@@ -105,17 +112,18 @@ function WorkingMode() {
 
         <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-vader/30 bg-vader/[0.04] p-5">
           <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-ink-secondary">
-            <StatusChip tone="green" label="Static re-confirmed 9/9" />
+            <StatusChip tone="green" label={`Static re-confirmed ${mission.flow.nodes.length}/${mission.flow.nodes.length}`} />
             <span className="text-ink-faint">·</span>
             <span className="font-mono text-[11.5px] text-ink-muted">
               checksum verified · {mission.mission_id}
             </span>
           </div>
           <button
-            onClick={() => session.runDynamic()}
-            className="rounded-lg border border-vader/50 bg-vader/15 px-5 py-2.5 font-mono text-[13px] font-semibold text-vader transition-colors hover:bg-vader/25"
+            onClick={b.produceEvidence}
+            disabled={b.busy}
+            className="rounded-lg border border-vader/50 bg-vader/15 px-5 py-2.5 font-mono text-[13px] font-semibold text-vader transition-colors hover:bg-vader/25 disabled:opacity-50"
           >
-            ▶ Run dynamic experiments (Frida)
+            {b.busy ? "Running…" : "▶ Run dynamic experiments (Frida)"}
           </button>
         </div>
 
@@ -130,8 +138,7 @@ function WorkingMode() {
     );
   }
 
-  // Post-run: full evidence attached
-  const recon = reconcile(mission, evidenceReturn);
+  const recon = reconcile(mission, evidence);
   return (
     <main className="mx-auto max-w-6xl px-5 py-6">
       <div className="mb-4 flex items-end justify-between gap-4">
@@ -140,26 +147,39 @@ function WorkingMode() {
             Darth Vader · evidence captured
           </p>
           <h1 className="mt-1 text-xl font-semibold text-ink-primary">
-            All nodes confirmed — send evidence back
+            All nodes confirmed — export the evidence to carry back
           </h1>
         </div>
-        <button
-          onClick={() => session.sendEvidence()}
-          className="rounded-lg border border-vader/50 bg-vader/15 px-5 py-2.5 font-mono text-[13px] font-semibold text-vader transition-colors hover:bg-vader/25"
-        >
-          Send evidence to Yoda →
-        </button>
       </div>
 
-      <EvidenceSummary />
+      <DevicePanel
+        title="PixelBridge · device transport (airgapped)"
+        subtitle="Evidence materialized as real files in bridge/vader_outbox + bridge/artifacts. Export the single bundle and carry it on the device back to Yoda."
+        note={b.note}
+      >
+        <ExportButton
+          label="⬇ Export evidence bundle"
+          tone="vader"
+          onExport={() => b.exportBundle("evidence")}
+          hint={`checksum ${evidence.checksum.slice(0, 16)}… · carry to Yoda`}
+        />
+        <button
+          onClick={b.reset}
+          className="rounded-lg border border-edge px-4 py-2.5 font-mono text-[12px] text-ink-muted hover:text-ink-secondary"
+        >
+          ↺ reset bridge
+        </button>
+      </DevicePanel>
 
-      {extractedPayloads.length > 0 && (
+      <EvidenceSummary evidence={evidence} />
+
+      {evidence.extracted_payloads.length > 0 && (
         <div className="mb-5">
           <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-muted">
             Extracted payloads
           </p>
           <div className="grid gap-3">
-            {extractedPayloads.map((p) => (
+            {evidence.extracted_payloads.map((p) => (
               <PayloadCard key={p.payload_id} payload={p} />
             ))}
           </div>
@@ -176,64 +196,14 @@ function WorkingMode() {
   );
 }
 
-function EvidenceSentMode() {
-  return (
-    <main className="mx-auto max-w-3xl px-5 py-16">
-      <div className="rounded-2xl border border-edge bg-bg-card/80 p-8 text-center shadow-card">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-accent-green/40 bg-accent-green/10">
-          <span className="text-accent-green">✓</span>
-        </div>
-        <h1 className="text-xl font-semibold text-ink-primary">Evidence sent over PixelBridge</h1>
-        <p className="mx-auto mt-2 max-w-md text-[13px] text-ink-secondary">
-          The EvidenceReturn is in <span className="font-mono text-ink-primary">yoda_inbox</span>{" "}
-          with all boundary nodes confirmed. Yoda can now reconcile and score.
-        </p>
-        <dl className="mx-auto mt-5 max-w-md space-y-1.5 rounded-lg border border-edge-faint bg-bg-void/60 p-4 text-left font-mono text-[11px]">
-          <div className="flex justify-between gap-3">
-            <dt className="text-ink-faint">verdict</dt>
-            <dd className="text-accent-green">{evidenceReturn.verdict}</dd>
-          </div>
-          <div className="flex justify-between gap-3">
-            <dt className="text-ink-faint">dynamic_score</dt>
-            <dd className="text-ink-secondary">{evidenceReturn.dynamic_score}</dd>
-          </div>
-          <div className="flex justify-between gap-3">
-            <dt className="text-ink-faint">checksum</dt>
-            <dd className="break-all text-ink-secondary">{evidenceReturn.checksum.slice(0, 32)}…</dd>
-          </div>
-        </dl>
-        <div className="mt-6 flex items-center justify-center gap-3">
-          <Link
-            href="/yoda"
-            className="rounded-lg border border-yoda/50 bg-yoda/15 px-5 py-2.5 font-mono text-[13px] font-semibold text-yoda transition-colors hover:bg-yoda/25"
-          >
-            ← Reconcile in Yoda
-          </Link>
-          <button
-            onClick={() => session.reset()}
-            className="rounded-lg border border-edge px-4 py-2.5 font-mono text-[12px] text-ink-muted hover:text-ink-secondary"
-          >
-            ↺ reset
-          </button>
-        </div>
-      </div>
-    </main>
-  );
-}
-
 export default function VaderPage() {
-  const s = useSession();
+  const b = useBridge("vader");
+  const hasMission = !!b.data?.mission;
 
   return (
     <div className="min-h-screen">
       <TopNav active="vader" />
-      {!s.missionSent ? (
-        <NoMission />
-      ) : s.evidenceReturned ? (
-        <EvidenceSentMode />
-      ) : (
-        <WorkingMode />
-      )}
+      {hasMission ? <WorkingMode b={b} /> : <NoMission b={b} />}
     </div>
   );
 }

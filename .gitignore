@@ -10,3 +10,6 @@ build/
 next-env.d.ts
 *.tsbuildinfo
 .playwright-mcp/
+
+# Runtime PixelBridge mailboxes (per-machine on-disk state, not source)
+/bridge/
