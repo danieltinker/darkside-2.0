@@ -1,0 +1,234 @@
+graph_id: attribution_gated_webview_uncloaking_v1
+rubric_id: attribution_gated_webview_uncloaking
+schema_version: "1.0.0"
+entry: n1_callback
+
+# required_nodes drives scoring: a chain is confirmed only when all three are hit.
+# NOTE: the cloaking_gate boundary has no node in this 9-node golden graph.
+# The gate is implicit in the MMP golden case; it gets its own node when the
+# 13-node behavioral graph lands.
+required_nodes: [n1_callback, n2_parse, n3_load]
+
+nodes:
+
+  # ---- Stage 1 · Trigger --------------------------------------------
+  - node_id: n1_callback
+    stage: 1
+    phase: acquisition
+    boundary: acquisition_signal
+    behavioral_role: attribution_payload_entry
+    label: onConversionDataSuccess
+    kind: trigger
+    static_confirmed: true
+    frida_hook: com.adtrack.attr.AttribListener.onConversionDataSuccess
+    flexible_match:
+      examples: [onConversionDataSuccess, onAttributionChanged, onInstallReferrerSetupFinished]
+      match_type: semantic_or_api_family
+    signature:
+      class_name: com.adtrack.attr.AttribListener
+      method: "onConversionDataSuccess(java.util.Map)"
+      file_path: sources/com/adtrack/attr/AttribListener.java
+      line: 42
+      snippet: |
+        public void onConversionDataSuccess(Map<String, Object> data) {
+            String tok = String.valueOf(data.get("af_adset"));
+            a.invoke(data);          // hand off to URL builder
+        }
+
+  # ---- Stage 2 · URL build ------------------------------------------
+  - node_id: n2_invoke
+    stage: 2
+    phase: url_build
+    boundary: null
+    behavioral_role: runtime_url_builder
+    label: "a.invoke(data)"
+    kind: dispatch
+    static_confirmed: true
+    frida_hook: com.adtrack.core.a.invoke
+    signature:
+      class_name: com.adtrack.core.a
+      method: "invoke(java.util.Map)"
+      file_path: sources/com/adtrack/core/a.java
+      line: 18
+      snippet: |
+        final void invoke(Map data) {
+            String r  = g(String.valueOf(data.get("af_adset")));
+            String dl = new JSONObject(r).optString("dl");
+            String url = B64.dec(dl);   // deobfuscate → cleartext
+            MainActivity.o(url);        // hand to sink
+        }
+
+  - node_id: n2_http
+    stage: 2
+    phase: url_build
+    boundary: null
+    behavioral_role: remote_destination_resolution
+    label: "a.g(token) — tracker GET"
+    kind: http
+    static_confirmed: true
+    frida_hook: com.adtrack.core.a.g
+    signature:
+      class_name: com.adtrack.core.a
+      method: "g(java.lang.String)"
+      file_path: sources/com/adtrack/core/a.java
+      line: 33
+      snippet: |
+        String g(String t) {
+            Request rq = new Request.Builder()
+                .url("https://t.adtrack-cdn.com/c?ref=" + t).build();
+            return client.newCall(rq).execute().body().string();
+        }
+
+  - node_id: n2_parse
+    stage: 2
+    phase: url_build
+    boundary: destination_resolution
+    behavioral_role: attribution_field_extraction
+    label: 'JSONObject.optString("dl")'
+    kind: parse
+    static_confirmed: true
+    frida_hook: org.json.JSONObject.optString
+    flexible_match:
+      examples: [optString, getValue, JSONObject]
+      match_type: fuzzy_key_and_dataflow
+    signature:
+      class_name: org.json.JSONObject
+      method: "optString(java.lang.String)"
+      file_path: sources/com/adtrack/core/a.java
+      line: 20
+      snippet: |
+        String dl = new JSONObject(r).optString("dl");
+        // dl = "S0NmW1tdQ0pYW0..." (base64, XOR-wrapped — not the URL yet)
+
+  - node_id: n2_deobf
+    stage: 2
+    phase: url_build
+    boundary: null
+    behavioral_role: runtime_url_builder
+    label: "B64.dec(dl) → cleartext URL"
+    kind: deobf
+    static_confirmed: true
+    produces_url: true
+    frida_hook: com.adtrack.util.B64.dec
+    signature:
+      class_name: com.adtrack.util.B64
+      method: "dec(java.lang.String)"
+      file_path: sources/com/adtrack/util/B64.java
+      line: 11
+      snippet: |
+        static String dec(String s) {
+            byte[] b = Base64.decode(s, 0);
+            for (int i = 0; i < b.length; i++) b[i] ^= KEY[i % KEY.length];
+            return new String(b);    // → cleartext affiliate URL
+        }
+    decryptor:
+      algorithm: xor
+      key_source: "static byte[] KEY in B64.<clinit> (base64-decode then XOR)"
+      decrypted_strings:
+        - ciphertext: "S0NmW1tdQ0pYW0FUX0ZRXl5dQ0pYW0FUX0ZR"
+          plaintext: "https://go.offerwall-aff.net/r?o=8821&aff=adtrack&sub=mmp"
+          note: 'value of the "dl" field after base64-decode + XOR unwrap'
+        - ciphertext: "QFlbX0FUX0ZRXl5dQ0o="
+          plaintext: "go.offerwall-aff.net"
+          note: "host extracted from the recovered URL"
+
+  # ---- Stage 3 · Sink -----------------------------------------------
+  - node_id: n3_o
+    stage: 3
+    phase: sink
+    boundary: null
+    behavioral_role: browser_container_setup
+    label: "MainActivity.o(url)"
+    kind: dispatch
+    static_confirmed: true
+    frida_hook: com.app.MainActivity.o
+    signature:
+      class_name: com.app.MainActivity
+      method: "o(java.lang.String)"
+      file_path: sources/com/app/MainActivity.java
+      line: 210
+      snippet: |
+        public final void o(String url) {
+            new Cloak(this).c(url);    // launch cloak coroutine
+        }
+
+  - node_id: n3_coro
+    stage: 3
+    phase: sink
+    boundary: null
+    behavioral_role: dispatch_indirection
+    label: Cloak$block$1.invokeSuspend
+    kind: dispatch
+    static_confirmed: true
+    frida_hook: com.app.Cloak$c$1.invokeSuspend
+    signature:
+      class_name: com.app.Cloak$c$1
+      method: "invokeSuspend(java.lang.Object)"
+      file_path: sources/com/app/Cloak$c$1.java
+      line: 27
+      snippet: |
+        public final Object invokeSuspend(Object $result) {
+            // coroutine indirection hides the sink call site
+            Cloak.nativeDispatch(this.$url);   // → JNI
+            return Unit.INSTANCE;
+        }
+
+  - node_id: n3_native
+    stage: 3
+    phase: sink
+    boundary: null
+    behavioral_role: native_dispatch
+    label: "libcloak.so JNI dispatch"
+    kind: dispatch
+    static_confirmed: true
+    frida_hook: com.app.Cloak.nativeDispatch
+    signature:
+      class_name: com.app.Cloak
+      method: "nativeDispatch(java.lang.String)"
+      file_path: sources/com/app/Cloak.java
+      line: 64
+      snippet: |
+        private static native void nativeDispatch(String url);
+        // resolves to Java_com_app_Cloak_nativeDispatch in libcloak.so
+        // native code re-enters Java and calls render(url)
+    native_file:
+      native_id: nf_libcloak_8821
+      name: libcloak.so
+      sha256: "9f2c1ab4e7d3056b8c41fa92de77b0c5a3e1488f6b2d90147ca5e0b3f8d62719"
+      exported_symbol: Java_com_app_Cloak_nativeDispatch
+      confirmed_active: false
+      activity_note: "native dispatch present in lib; runtime execution unproven"
+
+  - node_id: n3_load
+    stage: 3
+    phase: sink
+    boundary: render
+    behavioral_role: in_app_destination_render
+    label: "WebView.loadUrl(url)"
+    kind: sink
+    static_confirmed: true
+    frida_hook: android.webkit.WebView.loadUrl
+    flexible_match:
+      examples: [WebView.loadUrl, WebView.postUrl, evaluateJavascript]
+      match_type: sink_family
+    signature:
+      class_name: android.webkit.WebView
+      method: "loadUrl(java.lang.String)"
+      file_path: sources/com/app/Cloak.java
+      line: 88
+      snippet: |
+        // native callback re-enters Java here:
+        void render(String url) {
+            this.webView.loadUrl(url);   // the real sink
+        }
+
+edges:
+  - { from: n1_callback, to: n2_invoke,  relation: calls    }
+  - { from: n2_invoke,   to: n2_http,    relation: calls    }
+  - { from: n2_http,     to: n2_parse,   relation: returns  }
+  - { from: n2_parse,    to: n2_deobf,   relation: data_to  }
+  - { from: n2_deobf,    to: n2_invoke,  relation: returns  }
+  - { from: n2_invoke,   to: n3_o,       relation: data_to  }
+  - { from: n3_o,        to: n3_coro,    relation: calls    }
+  - { from: n3_coro,     to: n3_native,  relation: calls    }
+  - { from: n3_native,   to: n3_load,    relation: triggers }
