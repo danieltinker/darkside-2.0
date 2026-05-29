@@ -12,6 +12,19 @@ export function getCompiledMission(): MissionContext {
   const cat = loadCategory("riskware");
   const chain = loadChains(RUBRIC).chains[0];
   const flow = compileFlowGraph(loadGraphGem(RUBRIC));
+
+  const aids = {
+    frida_hooks: flow.nodes.map((n) => ({ node_id: n.node_id, target: n.frida_hook })),
+    mock_responses: [
+      {
+        label: "tracker GET response (carries wrapped URL)",
+        when: "non_organic attribution",
+        payload: { status: "ok", dl: "S0NmW1tdQ0pYW0FUX0ZRXl5dQ0pYW0FUX0ZR" },
+      },
+    ],
+    decryptors: flow.nodes.flatMap((n) => (n.decryptor ? [n.decryptor] : [])),
+  };
+
   return stampMission({
     schema_version: "1.0.0",
     type: "MissionContext",
@@ -28,6 +41,7 @@ export function getCompiledMission(): MissionContext {
       points_if_strong: chain.points,
       gem_version: cat.version,
     },
+    dynamic_aids: aids,
     flow,
     status: "MISSION_SENT",
     created_at: "2026-05-29T08:02:00Z",

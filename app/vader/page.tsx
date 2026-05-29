@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useBridge, type ImportResultDTO } from "@/lib/session";
 import { reconcile } from "@/lib/reconcile";
 import { ensureSeeded } from "@/lib/seed";
+import { DynamicAids } from "@/components/DynamicAids";
 import { MissionCard } from "@/components/MissionCard";
 import { PayloadCard } from "@/components/PayloadCard";
 import { TopNav } from "@/components/TopNav";
@@ -110,6 +111,8 @@ function WorkingMode({ b }: { b: Bridge }) {
           </h1>
         </div>
 
+        {mission.dynamic_aids && <DynamicAids aids={mission.dynamic_aids} />}
+
         <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-vader/30 bg-vader/[0.04] p-5">
           <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-ink-secondary">
             <StatusChip tone="green" label={`Static re-confirmed ${mission.flow.nodes.length}/${mission.flow.nodes.length}`} />
@@ -151,6 +154,8 @@ function WorkingMode({ b }: { b: Bridge }) {
           </h1>
         </div>
       </div>
+
+      {mission.dynamic_aids && <DynamicAids aids={mission.dynamic_aids} />}
 
       <DevicePanel
         title="PixelBridge · device transport (airgapped)"
