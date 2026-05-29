@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-bg-base text-ink-primary font-sans;
+    background-image:
+      radial-gradient(900px 500px at 80% -10%, rgba(76, 196, 240, 0.05), transparent),
+      radial-gradient(800px 600px at -10% 110%, rgba(169, 139, 245, 0.05), transparent);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-accent-green/25 text-ink-primary;
+  }
+
+  /* Thin, restrained scrollbars. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #323a4b transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    @apply bg-edge-strong rounded-full;
+  }
+}
+
+@layer utilities {
+  /* Hairline grid texture for panels. */
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  /* Animated dashed flow edge for the call graph. */
+  .edge-flow {
+    stroke-dasharray: 4 6;
+    animation: dash 1.2s linear infinite;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
