@@ -47,10 +47,12 @@ static-analysis engine, real Frida/device/adb. Those are roadmap.
    rubric data. One gem for all of riskware now; split per-rubric + a gem list +
    parallelism at scale.
 5. **Agent topology (decoupled):**
-   - **Yoda — orchestrator agent.** Dispatches research subagents, **aggregates the
-     app's total score** (sum of confirmed chains across rubrics), decides
-     **qualifies-for-dynamic**, owns final verdict + reconciliation. Never does
-     per-rubric tracing itself.
+   - **Yoda — orchestrator agent.** **Receives an already-locked app as input**
+     (`{package_name, category, metadata_score, identity}`) — it does **not** lock
+     the app; locking happens upstream. **Dispatches Sky Walker only when
+     `metadata_score >= 8`.** Then **aggregates the app's total score** (sum of
+     confirmed chains across rubrics), decides **qualifies-for-dynamic**, owns final
+     verdict + reconciliation. Never does per-rubric tracing itself.
    - **Sky Walker — research subagent (⊂ Yoda).** Runs *one* rubric's static
      research → per-rubric `static_potential_report` + candidate graph + boundary
      statuses. **Never computes the app total.**
@@ -190,6 +192,15 @@ you report findings for your assigned rubric; Yoda aggregates.
 ## Output (per rubric)
 static_potential_report: matched boundaries, candidate nodes, static_potential_score,
 qualifies_for_vader (bool) + reason, recommended Vader experiments.
+
+## Optional dynamic aids (best-effort accelerators for Darth Vader)
+When static analysis surfaces them, also emit (all optional — never required for a
+report): suggested **frida_hooks** (exact hook targets per node), **mock_responses**
+(payloads Vader can inject — e.g. the tracker/remote response that carries the wrapped
+URL, or a Non-organic attribution payload), and **decryptors** (algorithm + key_source
++ a worked sample) recovered statically. These help Vader reach dynamic evidence faster
+but do not change scoring.
+
 If you see a new variant/anchor/sink/gate, emit a learning_candidate — NEVER edit gem files.
 ```
 
@@ -201,14 +212,16 @@ If you see a new variant/anchor/sink/gate, emit a learning_candidate — NEVER e
 You own an app investigation end to end. You do NOT trace rubrics yourself — you
 dispatch Sky Walker research subagents and aggregate their results.
 
-## Knowledge
-- Category gems + rubric registries: gems/<category>/category.yaml
-- Scoring policy: each category's score_map / chains points.
+## Inputs — the app is already LOCKED upstream; you do NOT lock it
+- locked_app: { package_name, category, metadata_score, identity }
+- Knowledge: gems/<category>/category.yaml (rubric registry + scoring/qualify policy)
 
 ## Flow
-1. Lock the app from the queue; resolve identity.
-2. Pick candidate categories; for each, dispatch a Sky Walker subagent per active
-   rubric (parallelizable). Give each only its rubric assignment.
+1. Receive locked_app. GATE 1 (metadata): if metadata_score < 8, STOP — do not
+   dispatch, mark as below-threshold. (This is an upstream-meta routing gate, not a
+   rubric score.)
+2. If metadata_score >= 8, dispatch a Sky Walker subagent per active rubric in the
+   given category (parallelizable). Give each only its rubric assignment.
 3. Collect each subagent's static_potential_report + candidate graph + boundary statuses.
 4. AGGREGATE the app total = sum of CONFIRMED chains across all rubrics (binary per
    chain; partial chains contribute 0).
@@ -329,6 +342,14 @@ live board: the Boundary Proof Table + (real-engine, later) incremental per-node
 ## 11. Contract evolution (precise)
 
 ```ts
+// Yoda input — the app is locked upstream; metadata_score >= 8 gates dispatch.
+type LockedApp = {
+  package_name: string;
+  category: string;          // which category to review (e.g. "riskware")
+  metadata_score: number;    // upstream meta gate; >= 8 → dispatch Sky Walker
+  identity: CaseIdentity;    // existing fields (version, developer, countries, …)
+};
+
 // MissionContext: replace the single hardcoded ioc with a generalized rubric ref.
 rubric: {
   category_id: string;
@@ -338,6 +359,14 @@ rubric: {
   points_if_strong: 8 | 4 | 2;
   gem_version: string;
 }
+
+// MissionContext: optional dynamic aids Sky Walker hands Vader (best-effort).
+dynamic_aids?: {
+  frida_hooks?: { node_id: string; target: string }[];
+  mock_responses?: { label: string; when: string; payload: unknown }[];
+  decryptors?: Decryptor[];   // reuse the existing Decryptor type
+};
+
 // FlowNode: additive fields (optional → backward-compatible)
 behavioral_role?: string;
 phase?: string;
@@ -381,8 +410,9 @@ reduces churn.
    read-only surface; a browsable `Category → Rubric → Chain` catalog.
 
 **Defer (roadmap):** real LLM runtime, real decompiler + traversal engine, real
-Frida/adb, the Firebase 4-pt chain (add right after the spine to demo cross-chain
-partial scoring — fast follow).
+Frida/adb. **Additional real chains (4-pt / 2-pt) will be appended later by the user**
+into the codebase — the schema and `aggregateScore` must accept them with no refactor
+(Firebase example set aside for now).
 
 ---
 
