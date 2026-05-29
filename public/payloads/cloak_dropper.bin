@@ -1,0 +1,6 @@
+DEX
+035 darkside-poc placeholder dropper
+This is a non-executable placeholder standing in for a dropper/packer that
+Darth Vader would pull off the device at runtime under
+bridge/artifacts/<mission_id>/payloads/. In production this handle is served
+by an authenticated /api/payloads/:id. sha256 recorded in the EvidenceReturn.
