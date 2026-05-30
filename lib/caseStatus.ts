@@ -1,6 +1,9 @@
 import "server-only";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import type { AgentStatus } from "./caseView";
+
+export type { AgentStatus };
 
 // =====================================================================
 // Case runtime status — the dynamic overlay on the static roster (lib/cases.ts).
@@ -15,7 +18,6 @@ import path from "node:path";
 // agent (Sky Walker won't hook a bad slice).
 // =====================================================================
 
-export type AgentStatus = "idle" | "static" | "dynamic";
 export type DecompileState = "none" | "ok" | "failed";
 
 export type CaseEvent = { at: string; kind: string; detail: string };
@@ -99,8 +101,8 @@ export async function installAndDecompile(
     event(rt, "install", "adb install <pkg> → installed on device");
     if (sliceOk) {
       rt.decompile = "ok";
-      rt.agent_status = "static";
-      event(rt, "slice", "full decompile (slice) 100% — agent armed: STATIC analysis");
+      rt.agent_status = "static_waiting"; // armed; awaiting MANUAL dispatch (no auto-dispatch)
+      event(rt, "slice", "full decompile (slice) 100% — agent armed, waiting for dispatch (static)");
     } else {
       rt.decompile = "failed";
       rt.agent_status = "idle";
@@ -109,14 +111,33 @@ export async function installAndDecompile(
   });
 }
 
+// Uninstall the APK from the device (placeholder — real adb uninstall plugs in
+// here). Resets to needs-install; the host-side slice is unaffected.
+export async function uninstall(caseId: string): Promise<CaseRuntime> {
+  return mutate(caseId, (rt) => {
+    rt.installed = false;
+    rt.device_synced = false;
+    event(rt, "uninstall", "adb uninstall <pkg> → removed from device");
+  });
+}
+
+// The analysis agent reports its own run-status (it calls this when it runs;
+// surfaced as placeholder controls until the real agent is plugged in).
+export async function agentReport(caseId: string, status: AgentStatus): Promise<CaseRuntime> {
+  return mutate(caseId, (rt) => {
+    rt.agent_status = status;
+    event(rt, "agent", `agent reported: ${status.replace(/_/g, " ")}`);
+  });
+}
+
 // Push the mission to the device over PixelBridge. The caller ensures the
-// device filesystem is up to date first; this flips the agent to DYNAMIC.
+// device filesystem is up to date first; this starts DYNAMIC investigation.
 export async function pushToDevice(caseId: string, fsDetail: string): Promise<CaseRuntime> {
   return mutate(caseId, (rt) => {
     rt.device_synced = true;
-    rt.agent_status = "dynamic";
+    rt.agent_status = "dynamic_running";
     event(rt, "device_sync", fsDetail);
-    event(rt, "dynamic", "pushed to device over PixelBridge — agent: DYNAMIC analysis");
+    event(rt, "dynamic", "pushed to device over PixelBridge — agent: running dynamic investigation");
   });
 }
 

@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { CaseRow, ChainOutcome } from "@/lib/caseRows";
 import { type QueueStatus, METADATA_DISPATCH_GATE } from "@/lib/cases";
-import type { CaseRuntime, AgentStatus } from "@/lib/caseStatus";
+import {
+  AGENT_LABEL,
+  AGENT_TONE,
+  revealsChains,
+  effectiveAgentStatus,
+  effectiveInstalled,
+} from "@/lib/caseView";
+import type { CaseRuntime } from "@/lib/caseStatus";
 import { StatusChip, type ChipTone } from "./StatusChip";
 
 const STATUS_TONE: Record<QueueStatus, ChipTone> = {
@@ -33,12 +40,6 @@ const STRENGTH_TONE: Record<ChainOutcome["strength"], ChipTone> = {
   non_signal: "neutral",
 };
 
-const AGENT: Record<AgentStatus, { tone: ChipTone; label: string }> = {
-  idle: { tone: "neutral", label: "agent idle" },
-  static: { tone: "cyan", label: "agent · static analysis" },
-  dynamic: { tone: "violet", label: "agent · dynamic analysis" },
-};
-
 function scoreDisplay(row: CaseRow): string {
   if (row.status === "running" || row.status === "locked" || row.status === "below_gate") return "—";
   return String(row.score);
@@ -54,13 +55,8 @@ function ChainChecklist({ chains }: { chains: ChainOutcome[] }) {
             c.confirmed ? "border-accent-green/30 bg-accent-green/[0.05]" : "border-edge bg-bg-void/40"
           }`}
         >
-          <span
-            className={`h-1.5 w-1.5 shrink-0 rounded-full ${c.confirmed ? "bg-accent-green" : "bg-ink-faint"}`}
-            aria-hidden
-          />
-          <span className={`flex-1 text-[12px] ${c.confirmed ? "text-ink-primary" : "text-ink-muted"}`}>
-            {c.name}
-          </span>
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${c.confirmed ? "bg-accent-green" : "bg-ink-faint"}`} aria-hidden />
+          <span className={`flex-1 text-[12px] ${c.confirmed ? "text-ink-primary" : "text-ink-muted"}`}>{c.name}</span>
           <StatusChip tone={STRENGTH_TONE[c.strength]} label={`${c.strength} · ${c.points}`} />
           <span className={`w-10 text-right font-mono text-[12px] ${c.confirmed ? "text-accent-green" : "text-ink-faint"}`}>
             {c.confirmed ? `+${c.points}` : "0"}
@@ -77,8 +73,7 @@ function Timeline({ rt }: { rt: CaseRuntime }) {
     <ol className="space-y-1 border-l border-edge pl-3">
       {rt.events.map((e, i) => (
         <li key={i} className="text-[11.5px] text-ink-muted">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">{e.kind}</span>{" "}
-          {e.detail}
+          <span className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">{e.kind}</span> {e.detail}
         </li>
       ))}
     </ol>
@@ -98,7 +93,7 @@ export function CaseQueue({ rows }: { rows: CaseRow[] }) {
       const res = await fetch("/api/cases", { cache: "no-store" });
       setRuntime((await res.json()) as Record<string, CaseRuntime>);
     } catch {
-      /* leave prior runtime on transient failure */
+      /* keep prior runtime */
     }
   }, []);
 
@@ -106,16 +101,16 @@ export function CaseQueue({ rows }: { rows: CaseRow[] }) {
     refresh();
   }, [refresh]);
 
-  async function installDecompile(caseId: string) {
+  async function action(caseId: string, action: "install_decompile" | "uninstall", navigate = false) {
     setBusy(caseId);
     try {
       await fetch(`/api/cases/${caseId}/action`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "install_decompile" }),
+        body: JSON.stringify({ action }),
       });
       await refresh();
-      router.push("/agent"); // the install & decompile opens the agent tab
+      if (navigate) router.push("/agent");
     } finally {
       setBusy(null);
     }
@@ -130,7 +125,6 @@ export function CaseQueue({ rows }: { rows: CaseRow[] }) {
 
   return (
     <div className="space-y-3">
-      {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-[11px] uppercase tracking-wider text-ink-faint">filter</span>
         <select
@@ -140,9 +134,7 @@ export function CaseQueue({ rows }: { rows: CaseRow[] }) {
         >
           <option value="all">all statuses</option>
           {(Object.keys(STATUS_LABEL) as QueueStatus[]).map((s) => (
-            <option key={s} value={s}>
-              {STATUS_LABEL[s]}
-            </option>
+            <option key={s} value={s}>{STATUS_LABEL[s]}</option>
           ))}
         </select>
         <select
@@ -152,17 +144,12 @@ export function CaseQueue({ rows }: { rows: CaseRow[] }) {
         >
           <option value="all">all rubrics</option>
           {rubrics.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
+            <option key={r} value={r}>{r}</option>
           ))}
         </select>
-        <span className="ml-auto font-mono text-[11px] text-ink-faint">
-          {filtered.length} / {rows.length} cases
-        </span>
+        <span className="ml-auto font-mono text-[11px] text-ink-faint">{filtered.length} / {rows.length} cases</span>
       </div>
 
-      {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-edge bg-bg-card/70">
         <table className="w-full border-collapse text-left">
           <thead>
@@ -181,7 +168,9 @@ export function CaseQueue({ rows }: { rows: CaseRow[] }) {
               const isOpen = expanded === row.case_id;
               const rt = runtime[row.case_id];
               const belowGate = row.metadata_score < METADATA_DISPATCH_GATE;
-              const agent = rt ? AGENT[rt.agent_status] : AGENT.idle;
+              const agentStatus = effectiveAgentStatus(row.status, !!row.traced, rt);
+              const installed = effectiveInstalled(row.status, rt);
+              const showChains = revealsChains(agentStatus);
               return (
                 <Fragment key={row.case_id}>
                   <tr
@@ -207,24 +196,22 @@ export function CaseQueue({ rows }: { rows: CaseRow[] }) {
                       <StatusChip tone={STATUS_TONE[row.status]} dot pulse={row.status === "running"} label={STATUS_LABEL[row.status]} />
                     </td>
                     <td className="px-3 py-2.5">
-                      {rt && rt.agent_status !== "idle" ? (
-                        <StatusChip tone={agent.tone} dot pulse label={agent.label} />
-                      ) : (
+                      {agentStatus === "idle" ? (
                         <span className="font-mono text-[11px] text-ink-faint">—</span>
+                      ) : (
+                        <StatusChip
+                          tone={AGENT_TONE[agentStatus]}
+                          dot
+                          pulse={agentStatus === "static_running" || agentStatus === "dynamic_running"}
+                          label={AGENT_LABEL[agentStatus]}
+                        />
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-right">
-                      <span
-                        className={`font-mono text-[15px] font-semibold ${
-                          row.status === "scored"
-                            ? "text-accent-green"
-                            : row.status === "partial"
-                              ? "text-accent-amber"
-                              : row.status === "fp"
-                                ? "text-accent-red"
-                                : "text-ink-faint"
-                        }`}
-                      >
+                      <span className={`font-mono text-[15px] font-semibold ${
+                        row.status === "scored" ? "text-accent-green"
+                          : row.status === "partial" ? "text-accent-amber"
+                          : row.status === "fp" ? "text-accent-red" : "text-ink-faint"}`}>
                         {scoreDisplay(row)}
                       </span>
                     </td>
@@ -236,62 +223,68 @@ export function CaseQueue({ rows }: { rows: CaseRow[] }) {
                         <div className="space-y-3">
                           {row.note && <p className="text-[12px] italic leading-snug text-ink-secondary">{row.note}</p>}
 
-                          {/* Workbench action bar */}
+                          {/* Workbench action bar — Install&Decompile XOR Uninstall (a sequence). */}
                           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-edge bg-bg-card/60 p-2.5">
-                            <button
-                              onClick={() => installDecompile(row.case_id)}
-                              disabled={busy === row.case_id}
-                              title={belowGate ? "Metadata below gate — escalate to force a static review" : "Install the APK and decompile (slice), then open the Agent tab"}
-                              className={`rounded-md border px-3 py-1.5 font-mono text-[12px] font-medium transition-colors disabled:opacity-50 ${
-                                belowGate
-                                  ? "border-accent-amber/50 bg-accent-amber/10 text-accent-amber hover:bg-accent-amber/20"
-                                  : "border-yoda/50 bg-yoda/10 text-yoda hover:bg-yoda/20"
-                              }`}
-                            >
-                              {busy === row.case_id
-                                ? "Working…"
-                                : belowGate
-                                  ? "⤴ Escalate · Install & Decompile"
-                                  : "⬇ Install & Decompile"}
-                            </button>
-                            {rt && rt.agent_status !== "idle" && (
+                            {!installed ? (
+                              <button
+                                onClick={() => action(row.case_id, "install_decompile", true)}
+                                disabled={busy === row.case_id}
+                                title={belowGate ? "Metadata below gate — escalate to force a static review" : "Install the APK and decompile (slice), then open the Agent tab"}
+                                className={`rounded-md border px-3 py-1.5 font-mono text-[12px] font-medium transition-colors disabled:opacity-50 ${
+                                  belowGate
+                                    ? "border-accent-amber/50 bg-accent-amber/10 text-accent-amber hover:bg-accent-amber/20"
+                                    : "border-yoda/50 bg-yoda/10 text-yoda hover:bg-yoda/20"
+                                }`}
+                              >
+                                {busy === row.case_id ? "Working…" : belowGate ? "⤴ Escalate · Install & Decompile" : "⬇ Install & Decompile"}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => action(row.case_id, "uninstall")}
+                                disabled={busy === row.case_id}
+                                title="Uninstall the APK from the device (placeholder — real adb uninstall plugs in)"
+                                className="rounded-md border border-edge bg-bg-raised px-3 py-1.5 font-mono text-[12px] text-ink-secondary transition-colors hover:border-accent-red/50 hover:text-accent-red disabled:opacity-50"
+                              >
+                                {busy === row.case_id ? "Working…" : "🗑 Uninstall"}
+                              </button>
+                            )}
+                            {agentStatus !== "idle" && (
                               <>
-                                <StatusChip tone={agent.tone} dot label={agent.label} />
-                                <Link href="/agent" className="font-mono text-[11px] text-accent-cyan hover:underline">
-                                  open Agent tab →
-                                </Link>
+                                <StatusChip tone={AGENT_TONE[agentStatus]} dot label={`agent · ${AGENT_LABEL[agentStatus]}`} />
+                                <Link href="/agent" className="font-mono text-[11px] text-accent-cyan hover:underline">open Agent tab →</Link>
                               </>
                             )}
                             {rt?.decompile === "failed" && <StatusChip tone="red" dot label="decompilation failed" />}
-                            {row.traced && (
+                            {row.traced && showChains && (
                               <span className="ml-auto flex gap-2">
-                                <Link href="/yoda" className="rounded-md border border-yoda/40 bg-yoda/10 px-3 py-1.5 text-[12px] text-yoda hover:border-yoda/60">
-                                  Yoda · static →
-                                </Link>
-                                <Link href="/vader" className="rounded-md border border-vader/40 bg-vader/10 px-3 py-1.5 text-[12px] text-vader hover:border-vader/60">
-                                  Vader · dynamic →
-                                </Link>
+                                <Link href="/yoda" className="rounded-md border border-yoda/40 bg-yoda/10 px-3 py-1.5 text-[12px] text-yoda hover:border-yoda/60">Yoda · static →</Link>
+                                <Link href="/vader" className="rounded-md border border-vader/40 bg-vader/10 px-3 py-1.5 text-[12px] text-vader hover:border-vader/60">Vader · dynamic →</Link>
                               </span>
                             )}
                           </div>
 
-                          <div>
-                            <div className="mb-1.5 flex items-center justify-between">
-                              <span className="font-mono text-[11px] uppercase tracking-wider text-ink-faint">
-                                Chains · binary per chain
-                              </span>
-                              <span className="font-mono text-[11px] text-ink-muted">
-                                score {scoreDisplay(row)} · {row.chains.filter((c) => c.confirmed).length}/{row.chains.length} confirmed
-                              </span>
+                          {/* Chains are the OUTPUT of static analysis — only after it's done. */}
+                          {showChains ? (
+                            <div>
+                              <div className="mb-1.5 flex items-center justify-between">
+                                <span className="font-mono text-[11px] uppercase tracking-wider text-ink-faint">Chains · binary per chain</span>
+                                <span className="font-mono text-[11px] text-ink-muted">
+                                  score {scoreDisplay(row)} · {row.chains.filter((c) => c.confirmed).length}/{row.chains.length} confirmed
+                                </span>
+                              </div>
+                              <ChainChecklist chains={row.chains} />
                             </div>
-                            <ChainChecklist chains={row.chains} />
-                          </div>
+                          ) : (
+                            <p className="rounded-md border border-dashed border-edge bg-bg-void/40 px-3 py-2.5 font-mono text-[11.5px] text-ink-muted">
+                              {installed
+                                ? "Static analysis not complete — the chain breakdown is the agent's output and appears once it finishes."
+                                : "Not installed. Install & Decompile first, then dispatch the agent — chains/score appear after static analysis."}
+                            </p>
+                          )}
 
                           {rt && rt.events.length > 0 && (
                             <div>
-                              <span className="mb-1.5 block font-mono text-[11px] uppercase tracking-wider text-ink-faint">
-                                Status timeline
-                              </span>
+                              <span className="mb-1.5 block font-mono text-[11px] uppercase tracking-wider text-ink-faint">Status timeline</span>
                               <Timeline rt={rt} />
                             </div>
                           )}

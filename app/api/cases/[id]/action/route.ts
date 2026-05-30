@@ -1,4 +1,5 @@
-import { installAndDecompile, pushToDevice } from "@/lib/caseStatus";
+import { installAndDecompile, pushToDevice, uninstall, agentReport } from "@/lib/caseStatus";
+import type { AgentStatus } from "@/lib/caseView";
 import { caseQueue, METADATA_DISPATCH_GATE } from "@/lib/cases";
 import { getCompiledMission } from "@/lib/gems/goldenMission";
 import { evidenceReturn, artifactContent, extractedPayloads } from "@/lib/mock";
@@ -17,12 +18,29 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const kase = caseQueue.find((c) => c.case_id === id);
     if (!kase) return Response.json({ error: `unknown case ${id}` }, { status: 404 });
 
-    const body = (await req.json().catch(() => ({}))) as { action?: string; sliceOk?: boolean };
+    const body = (await req.json().catch(() => ({}))) as {
+      action?: string;
+      sliceOk?: boolean;
+      run?: AgentStatus;
+    };
 
     if (body.action === "install_decompile") {
       const belowGate = kase.metadata_score < METADATA_DISPATCH_GATE;
       const rt = await installAndDecompile(id, { belowGate, sliceOk: body.sliceOk });
       return Response.json(rt);
+    }
+
+    if (body.action === "uninstall") {
+      return Response.json(await uninstall(id));
+    }
+
+    // The agent reports its own run-status (placeholder until the real agent plugs in).
+    if (body.action === "agent_report") {
+      const allowed: AgentStatus[] = ["static_running", "static_done", "dynamic_running", "dynamic_done"];
+      if (!body.run || !allowed.includes(body.run)) {
+        return Response.json({ error: `invalid run status ${body.run}` }, { status: 400 });
+      }
+      return Response.json(await agentReport(id, body.run));
     }
 
     if (body.action === "push_device") {
