@@ -9,9 +9,19 @@ describe("loadGem", () => {
     expect(g.nodes).toHaveLength(11);
     expect(g.required_nodes).toEqual(["n4_callback", "n6_gate", "n8_resolve", "n10_load"]);
   });
-  it("loads the strong_8 chain", () => {
+  it("loads the strong_8 traced chain first (goldenMission depends on chains[0])", () => {
     const c = loadChains(RUBRIC);
+    expect(c.chains[0].chain_id).toBe("attribution_gated_webview_uncloaking_strong_8");
     expect(c.chains[0].points).toBe(8);
+  });
+
+  it("MMP cloaking now carries all five source signals (2 strong, 1 medium, 1 weak, 1 non_signal)", () => {
+    const POINTS: Record<string, number> = { strong: 8, medium: 4, weak: 2, non_signal: 0 };
+    const c = loadChains(RUBRIC);
+    expect(c.chains).toHaveLength(5);
+    for (const chain of c.chains) expect(chain.points).toBe(POINTS[chain.strength]);
+    const strengths = c.chains.map((x) => x.strength).sort();
+    expect(strengths).toEqual(["medium", "non_signal", "strong", "strong", "weak"]);
   });
   it("loads the category with metadata gate 8", () => {
     expect(loadCategory("riskware").dispatch_gate.metadata_score_gte).toBe(8);
@@ -44,6 +54,23 @@ describe("processed signal-level rubrics", () => {
     }
     // the Firebase strong signal is present
     expect(c.chains.some((x) => /firebase/i.test(x.name) && x.points === 8)).toBe(true);
+  });
+
+  it("device_info_cloaking: 9 chains (4 medium + 5 weak, no strong), points exact", () => {
+    const c = loadChains("device_info_cloaking");
+    expect(c.chains).toHaveLength(9);
+    for (const chain of c.chains) expect(chain.points).toBe(POINTS[chain.strength]);
+    expect(c.chains.filter((x) => x.strength === "medium")).toHaveLength(4);
+    expect(c.chains.filter((x) => x.strength === "weak")).toHaveLength(5);
+    expect(c.chains.some((x) => x.strength === "strong")).toBe(false);
+    // anchor signals from the source are present
+    expect(c.chains.some((x) => /root detection/i.test(x.name))).toBe(true);
+    expect(c.chains.some((x) => /adb_enabled/i.test(x.name))).toBe(true);
+  });
+
+  it("device_info_cloaking is registered in the riskware category", () => {
+    const ids = loadCategory("riskware").rubrics.map((r) => r.rubric_id);
+    expect(ids).toContain("device_info_cloaking");
   });
 });
 

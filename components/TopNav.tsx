@@ -2,12 +2,13 @@ import Link from "next/link";
 
 const LINKS = [
   { href: "/", label: "Overview", key: "home" },
+  { href: "/queue", label: "Queue · cases", key: "queue" },
   { href: "/yoda", label: "Yoda · static", key: "yoda" },
   { href: "/vader", label: "Vader · dynamic", key: "vader" },
   { href: "/bridge", label: "PixelBridge · fs", key: "bridge" },
 ] as const;
 
-export function TopNav({ active }: { active: "home" | "yoda" | "vader" | "bridge" }) {
+export function TopNav({ active }: { active: "home" | "queue" | "yoda" | "vader" | "bridge" }) {
   return (
     <header className="sticky top-0 z-20 border-b border-edge bg-bg-base/85 backdrop-blur">
       <div className="flex h-12 w-full items-center justify-between gap-3 overflow-x-auto px-6 lg:px-10">

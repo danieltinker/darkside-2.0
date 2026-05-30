@@ -1,0 +1,18 @@
+# GENERATED from the private riskware source-of-truth spreadsheet.
+# Do not hand-edit; regenerate from source. Source stays out of git.
+rubric_id: device_info_cloaking
+gem_type: rubric
+category: riskware
+name: Device info cloaking
+description: Changes behaviour based on device information.
+version: 0.1.0
+status: active
+severity: medium          # anti-analysis / evasion — supporting signals, not a payload
+# NOTE: this rubric has NO strong signal in the source; its strongest chains are
+# medium (4). It scores by accumulating confirmed chains, not a single strong-8.
+points_if_strong: 8       # category-wide tier constant (no strong chain exists here)
+scoring:
+  strong: 8
+  medium: 4
+  weak: 2
+  non_signal: 0
