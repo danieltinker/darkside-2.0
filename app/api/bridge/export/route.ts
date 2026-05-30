@@ -22,7 +22,10 @@ export async function GET(request: Request) {
         { status: 404 },
       );
     }
-    const filename = `darkbridge-${kind}-${id}.json`;
+    // Include the transfer's short id so carrying multiple bundles for the same
+    // mission_id never overwrites a prior file on the device.
+    const short = bundle.manifest.transfer_id.split(".").pop();
+    const filename = `darkbridge-${kind}-${id}-${short}.json`;
     return new Response(JSON.stringify(bundle, null, 2), {
       headers: {
         "Content-Type": "application/json",

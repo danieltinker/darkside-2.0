@@ -92,7 +92,10 @@ export type BundleArtifact = {
 
 type BundleManifestBase = {
   bundle_format: "darkbridge/1";
+  transfer_id: string; // unique per content: <mission_id>.<producer>.<checksum8>
   mission_id: string;
+  package_name?: string; // which app this transfer is for (ledger grouping)
+  complete: boolean; // mission: traced+required present · evidence: dynamic_confirmed + artifacts
   created_at: string;
   producer: Role;
 };
@@ -110,6 +113,41 @@ export type EvidenceBundle = {
 };
 
 export type AnyBundle = MissionBundle | EvidenceBundle;
+
+// ---- Transfer identity + ledger ------------------------------------
+// A transfer_id is derived from the message checksum, so it is UNIQUE per
+// content and STABLE across re-sends (re-carrying the identical bundle is a
+// no-op duplicate, not a silent overwrite). The ledger records every import so
+// Yoda knows, per package, what arrived and whether it's complete.
+function transferId(missionId: string, producer: Role, checksum: string): string {
+  return `${missionId}.${producer}.${checksum.slice(0, 8)}`;
+}
+
+export type TransferLogEntry = {
+  transfer_id: string;
+  kind: "mission" | "evidence";
+  mission_id: string;
+  package_name?: string;
+  producer: Role;
+  created_at: string; // when the bundle was packed (from the manifest)
+  imported_at: string; // when it landed on this machine
+  complete: boolean;
+  checksum_ok: boolean;
+  artifacts_verified: number;
+  duplicate: boolean; // transfer_id already in this machine's ledger
+};
+
+const LEDGER = path.join(BRIDGE, "transfers.json");
+
+export async function getTransfers(): Promise<TransferLogEntry[]> {
+  return (await readJsonIfExists<TransferLogEntry[]>(LEDGER)) ?? [];
+}
+
+async function appendTransfer(entry: TransferLogEntry): Promise<void> {
+  const log = await getTransfers();
+  log.push(entry);
+  await atomicWrite(LEDGER, JSON.stringify(log, null, 2));
+}
 
 // =====================================================================
 // PRODUCE (Yoda) — write the MissionContext into yoda_outbox.
@@ -199,7 +237,10 @@ export async function packMissionBundle(missionId: string): Promise<MissionBundl
     manifest: {
       bundle_format: "darkbridge/1",
       bundle_type: "mission",
+      transfer_id: transferId(missionId, "yoda", mission.checksum),
       mission_id: missionId,
+      package_name: mission.case_identity.package_name,
+      complete: mission.flow.nodes.length > 0 && mission.flow.required_nodes.length > 0,
       created_at: new Date().toISOString(),
       producer: "yoda",
     },
@@ -212,6 +253,11 @@ export async function packEvidenceBundle(missionId: string): Promise<EvidenceBun
     path.join(BRIDGE, "vader_outbox", EVIDENCE_FILE(missionId)),
   );
   if (!evidence) return null;
+
+  // Best-effort package_name (for ledger grouping) from the mission on this machine.
+  const linkedMission =
+    (await readJsonIfExists<MissionContext>(path.join(BRIDGE, "vader_inbox", MISSION_FILE(missionId)))) ??
+    (await readJsonIfExists<MissionContext>(path.join(BRIDGE, "yoda_outbox", MISSION_FILE(missionId))));
 
   const artifactContent =
     (await readJsonIfExists<Record<string, ArtifactContent>>(
@@ -239,7 +285,10 @@ export async function packEvidenceBundle(missionId: string): Promise<EvidenceBun
     manifest: {
       bundle_format: "darkbridge/1",
       bundle_type: "evidence",
+      transfer_id: transferId(missionId, "vader", evidence.checksum),
       mission_id: missionId,
+      package_name: linkedMission?.case_identity.package_name,
+      complete: evidence.dynamic_confirmed && artifacts.length > 0,
       created_at: new Date().toISOString(),
       producer: "vader",
     },
@@ -272,12 +321,21 @@ async function walk(dir: string): Promise<string[]> {
 export type ImportResult = {
   ok: boolean;
   kind: "mission" | "evidence";
+  transfer_id: string;
   mission_id: string;
+  package_name?: string;
+  complete: boolean;
+  duplicate: boolean; // this exact transfer was already imported here
   checksum_ok: boolean;
   artifacts_written: number;
   artifacts_verified: number;
   errors: string[];
 };
+
+// Derive a stable transfer_id even for a manifest that predates the field.
+function manifestTransferId(m: BundleManifestBase, checksum: string): string {
+  return m.transfer_id ?? transferId(m.mission_id, m.producer, checksum);
+}
 
 export async function importBundle(bundle: AnyBundle): Promise<ImportResult> {
   const errors: string[] = [];
@@ -286,17 +344,30 @@ export async function importBundle(bundle: AnyBundle): Promise<ImportResult> {
   }
 
   if (bundle.manifest.bundle_type === "mission") {
-    const { mission } = bundle as MissionBundle;
+    const { mission, manifest } = bundle as MissionBundle;
     const checksum_ok = verifyChecksum(mission);
     if (!checksum_ok) errors.push("MissionContext checksum mismatch");
+    const tid = manifestTransferId(manifest, mission.checksum);
+    const duplicate = (await getTransfers()).some((t) => t.transfer_id === tid);
     await atomicWrite(
       path.join(BRIDGE, "vader_inbox", MISSION_FILE(mission.mission_id)),
       JSON.stringify(mission, null, 2),
     );
+    await appendTransfer({
+      transfer_id: tid, kind: "mission", mission_id: mission.mission_id,
+      package_name: manifest.package_name ?? mission.case_identity.package_name,
+      producer: manifest.producer, created_at: manifest.created_at,
+      imported_at: new Date().toISOString(), complete: manifest.complete,
+      checksum_ok, artifacts_verified: 0, duplicate,
+    });
     return {
       ok: checksum_ok,
       kind: "mission",
+      transfer_id: tid,
       mission_id: mission.mission_id,
+      package_name: manifest.package_name ?? mission.case_identity.package_name,
+      complete: manifest.complete,
+      duplicate,
       checksum_ok,
       artifacts_written: 0,
       artifacts_verified: 0,
@@ -305,9 +376,11 @@ export async function importBundle(bundle: AnyBundle): Promise<ImportResult> {
   }
 
   // evidence bundle
-  const { evidence, artifacts, artifactContent } = bundle as EvidenceBundle;
+  const { evidence, artifacts, artifactContent, manifest } = bundle as EvidenceBundle;
   const checksum_ok = verifyChecksum(evidence);
   if (!checksum_ok) errors.push("EvidenceReturn checksum mismatch");
+  const tid = manifestTransferId(manifest, evidence.checksum);
+  const duplicate = (await getTransfers()).some((t) => t.transfer_id === tid);
 
   let written = 0;
   let verified = 0;
@@ -331,10 +404,21 @@ export async function importBundle(bundle: AnyBundle): Promise<ImportResult> {
     JSON.stringify(evidence, null, 2),
   );
 
+  await appendTransfer({
+    transfer_id: tid, kind: "evidence", mission_id: evidence.mission_id,
+    package_name: manifest.package_name, producer: manifest.producer,
+    created_at: manifest.created_at, imported_at: new Date().toISOString(),
+    complete: manifest.complete, checksum_ok, artifacts_verified: verified, duplicate,
+  });
+
   return {
     ok: checksum_ok && verified === artifacts.length,
     kind: "evidence",
+    transfer_id: tid,
     mission_id: evidence.mission_id,
+    package_name: manifest.package_name,
+    complete: manifest.complete,
+    duplicate,
     checksum_ok,
     artifacts_written: written,
     artifacts_verified: verified,

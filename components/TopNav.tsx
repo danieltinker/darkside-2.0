@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ROLE, ROLE_LABEL, VISIBLE_TABS } from "@/lib/role";
+import { ROLE, ROLE_LABEL, VISIBLE_TABS, VERSION } from "@/lib/role";
 
 const LINKS = [
   { href: "/", label: "Overview", key: "home" },
@@ -28,6 +28,11 @@ export function TopNav({
           <span className="hidden font-mono text-[11px] text-ink-faint sm:inline">
             / mmp-uncloaking
           </span>
+          {VERSION && (
+            <span className="rounded border border-edge bg-bg-raised px-1.5 py-0.5 font-mono text-[10px] text-ink-muted" title="Build version — both machines must match">
+              v{VERSION}
+            </span>
+          )}
           {ROLE !== "both" && (
             <span
               className={`ml-1 rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${

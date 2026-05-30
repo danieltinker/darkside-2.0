@@ -8,9 +8,13 @@ builds the zips and runs the first real end-to-end.
 
 ```bash
 npm run package
-# → dist/darkside-yoda.zip   (Yoda = static / mission control)
-# → dist/darkside-vader.zip  (Vader = dynamic lab)
+# → dist/darkside-yoda-v<version>.zip   (Yoda = static / mission control)
+# → dist/darkside-vader-v<version>.zip  (Vader = dynamic lab)
 ```
+
+The version comes from `package.json` and is stamped into the zip name, each
+zip's `.env` (`DARKSIDE_VERSION`), and the header chip in the UI. **Both
+machines must run the same version** — the header shows it.
 
 Each zip is built from `git archive HEAD` — **only committed, tracked files**
 ship, so the private source-of-truth (xlsx / chains zip / unzipped lib) can

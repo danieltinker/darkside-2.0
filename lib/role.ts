@@ -7,6 +7,9 @@ export type Role = "yoda" | "vader" | "both";
 const raw = process.env.NEXT_PUBLIC_DARKSIDE_ROLE;
 export const ROLE: Role = raw === "yoda" ? "yoda" : raw === "vader" ? "vader" : "both";
 
+// Build/release version, stamped into each zip's .env. Empty in plain dev.
+export const VERSION: string = process.env.NEXT_PUBLIC_DARKSIDE_VERSION ?? "";
+
 // Which nav tabs each role sees. Yoda owns static/queue/agent + reconcile on the
 // bridge; Vader owns the dynamic run + bridge import/export. "both" sees all (dev).
 export const VISIBLE_TABS: Record<Role, readonly string[]> = {

@@ -3,6 +3,7 @@
 import { ensureSeeded } from "@/lib/seed";
 import { TopNav } from "@/components/TopNav";
 import { BridgeExplorer } from "@/components/BridgeExplorer";
+import { TransferLedger } from "@/components/TransferLedger";
 
 // Seed the known-URL DB once when the bundle is first evaluated.
 ensureSeeded();
@@ -29,6 +30,7 @@ export default function BridgePage() {
           </p>
         </div>
         <BridgeExplorer />
+        <TransferLedger />
       </main>
     </div>
   );

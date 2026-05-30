@@ -15,13 +15,14 @@
 // =====================================================================
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync, existsSync, statSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
 const DIST = path.join(ROOT, "dist");
 const STAGE = path.join(DIST, "stage");
 const ROLES = ["yoda", "vader"];
+const VERSION = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
 
 function sh(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { cwd: ROOT, stdio: ["ignore", "pipe", "inherit"], ...opts }).toString();
@@ -40,13 +41,18 @@ mkdirSync(STAGE, { recursive: true });
 const baseTar = path.join(DIST, "_base.tar");
 sh("git", ["archive", "--format=tar", "-o", baseTar, "HEAD"]);
 
-const envFor = (role) => `# darkside — pinned to the ${role.toUpperCase()} machine.\nNEXT_PUBLIC_DARKSIDE_ROLE=${role}\nDARKSIDE_ROLE=${role}\n`;
+const envFor = (role) =>
+  `# darkside v${VERSION} — pinned to the ${role.toUpperCase()} machine.\n` +
+  `NEXT_PUBLIC_DARKSIDE_ROLE=${role}\nDARKSIDE_ROLE=${role}\n` +
+  `NEXT_PUBLIC_DARKSIDE_VERSION=${VERSION}\nDARKSIDE_VERSION=${VERSION}\n`;
 
 function operatorReadme(role) {
   const other = role === "yoda" ? "vader" : "yoda";
-  const common = `# darkside · ${role.toUpperCase()} machine
+  const common = `# darkside v${VERSION} · ${role.toUpperCase()} machine
 
-This zip is pinned to the **${role}** role (\`NEXT_PUBLIC_DARKSIDE_ROLE=${role}\` in \`.env\`).
+This zip is **darkside v${VERSION}**, pinned to the **${role}** role
+(\`NEXT_PUBLIC_DARKSIDE_ROLE=${role}\` in \`.env\`). Both machines must run the
+**same version** — check the version chip in the header.
 
 ## Install & run (localhost)
 \`\`\`bash
@@ -86,7 +92,7 @@ Requires Node ≥ 20.11. No Python/venv. See README.md for details.
 const PRIVATE = /\.(xlsx|xls)$|riskware_chains|riskware_rubrics|\/riskware\/riskware\/|flow_graph\./i;
 
 for (const role of ROLES) {
-  const name = `darkside-${role}`;
+  const name = `darkside-${role}-v${VERSION}`;
   const dir = path.join(STAGE, name);
   mkdirSync(dir, { recursive: true });
   sh("tar", ["-xf", baseTar, "-C", dir]);
@@ -105,9 +111,10 @@ for (const role of ROLES) {
     process.exit(1);
   }
   const kb = Math.round(statSync(zip).size / 1024);
-  console.log(`✓ dist/${name}.zip  (${kb} KB)  role=${role}  — private-clean`);
+  console.log(`✓ dist/${name}.zip  (${kb} KB)  role=${role}  v${VERSION}  — private-clean`);
 }
 
 rmSync(baseTar, { force: true });
 rmSync(STAGE, { recursive: true, force: true });
-console.log("\nNext: copy each zip to its machine, then follow its OPERATOR-README.md. Guide: docs/DEPLOY-ZIPS.md");
+console.log(`\ndarkside v${VERSION} packaged. To cut the next patch: bump package.json version → commit → git tag v<x.y.z> → npm run package.`);
+console.log("Copy each zip to its machine, then follow its OPERATOR-README.md. Guide: docs/DEPLOY-ZIPS.md");
