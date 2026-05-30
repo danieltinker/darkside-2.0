@@ -65,6 +65,14 @@
 - **Day 4:** D (screenshot evidence) + E (Playwright e2e in CI).
 - **Day 5:** F (gem evals, first real LLM on static) → hand the zips to the real machines for the **first real two-machine e2e** (real Vader rig via the adapters).
 
+## Deferred TODOs (later, not this build)
+- **Rubric Library tab** — browse Category → Rubric → Chain → graph blueprint from the gems (no live case), reusing CallGraph in a no-evidence "blueprint" mode. This is where chains/graphs get viewed standalone. (Confirmed: build later.)
+- **Wire rubric.yaml scoring into the loader** — `rubric.yaml` now carries `points_if_strong` + `scoring{strong/medium/weak}` as the rubric-level source of truth; runtime still reads `chains.yaml`. When the Library/multi-rubric work lands, add a `RubricSchema` + load it and keep the two consistent.
+
+### Terminology (locked)
+- **score** = chain `strength`→`points` (weak=2/medium=4/strong=8), binary per chain, summed at the investigation level. Lives on the rubric (`points_if_strong`+`scoring`) AND on each chain.
+- **severity** = threat-priority for triage (high/medium/low) — how dangerous if confirmed; NOT the score. Distinct vocabulary on purpose.
+
 ## Carry-over (from the merged PR review)
 - Wire `aggregateScore` into the live path (folds into C).
 - Demo route: derive evidence node-ids from the compiled mission to prevent desync (folds into E).

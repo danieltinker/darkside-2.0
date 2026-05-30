@@ -4,7 +4,17 @@ category: riskware
 name: Attribution-Gated WebView Uncloaking
 version: 0.1.0
 status: active
+
+# severity = threat-priority for triage (how dangerous if confirmed). NOT the score.
+# Values: high | medium | low (distinct from the score's strong/medium/weak).
 severity: high
+
+# scoring (binary per chain): a fully-confirmed chain awards its points; partial = 0.
+# The rubric's headline is its strongest chain. Strength tiers map to points.
+# Chains also carry their own points in chains.yaml (this is the rubric-level source).
+points_if_strong: 8
+scoring: { strong: 8, medium: 4, weak: 2 }
+
 required_behavioral_boundaries: [acquisition_signal, cloaking_gate, destination_resolution, render]
 flexible_anchor_signals:
   attribution_callbacks: { examples: [onConversionDataSuccess, AppsFlyerConversionListener, onAttributionChanged, InstallReferrerClient], match_type: semantic_or_api_family }
