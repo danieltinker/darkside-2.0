@@ -3,6 +3,7 @@ import Link from "next/link";
 const LINKS = [
   { href: "/", label: "Overview", key: "home" },
   { href: "/queue", label: "Queue", key: "queue" },
+  { href: "/agent", label: "Agent", key: "agent" },
   { href: "/yoda", label: "Yoda", key: "yoda" },
   { href: "/vader", label: "Vader", key: "vader" },
   { href: "/bridge", label: "Bridge", key: "bridge" },
@@ -12,7 +13,7 @@ const LINKS = [
 export function TopNav({
   active,
 }: {
-  active: "home" | "queue" | "yoda" | "vader" | "bridge" | "diagnostics";
+  active: "home" | "queue" | "agent" | "yoda" | "vader" | "bridge" | "diagnostics";
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-edge bg-bg-base/85 backdrop-blur">

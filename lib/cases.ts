@@ -22,7 +22,13 @@ export type QueueStatus =
   | "partial" // confirmed signals but total below the 8-pt threshold (0 < score < 8)
   | "fp" // static suspicion not reproduced → failed, score 0
   | "running" // Vader running experiments
-  | "locked"; // locked from the queue, not yet started
+  | "locked" // locked from the queue, not yet started
+  | "below_gate"; // metadata score < dispatch gate → closed early (human can escalate)
+
+// GATE-1 dispatch threshold (mirrors gems/riskware/category.yaml dispatch_gate).
+// A case below this is "below_gate" and Sky Walker isn't auto-dispatched —
+// a human can override via the Install & Decompile button (gate escalation).
+export const METADATA_DISPATCH_GATE = 8;
 
 export type CaseRecord = {
   case_id: string;
@@ -152,5 +158,23 @@ export const caseQueue: CaseRecord[] = [
       "device_info_cloaking__touch_count",
     ],
     note: "Three weak evasion signals confirmed (root/emulator/touch = 6) — below the 8-pt TP threshold, so this is a genuine partial, not a confirmed TP.",
+  },
+  {
+    case_id: "case_url_4471",
+    identity: {
+      case_id: "case_url_4471",
+      package_name: "com.puzzle.dailyhop",
+      version_code: 64,
+      version_name: "0.6.4",
+      developer: "Hopscotch Games",
+      top_countries: ["US", "CA", "AU"],
+    },
+    category_id: "riskware",
+    rubric_id: "arbitrary_obfuscated_url_loading",
+    rubric_name: "Arbitrary / obfuscated URL loading",
+    metadata_score: 5,
+    status: "below_gate",
+    confirmed_chain_ids: [],
+    note: "Metadata score 5 < gate 8 — closed early, Sky Walker not auto-dispatched. A reviewer can escalate (Install & Decompile) to force a static review anyway.",
   },
 ];
