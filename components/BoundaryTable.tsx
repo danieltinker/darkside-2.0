@@ -15,6 +15,7 @@ export function BoundaryTable({ recon }: { recon: Reconciliation }) {
   )];
   if (boundaries.length === 0) return null;
   return (
+    <div className="overflow-x-auto">
     <table className="w-full border-collapse text-[12px]">
       <thead>
         <tr className="text-left font-mono text-[10.5px] uppercase tracking-wider text-ink-faint">
@@ -36,5 +37,6 @@ export function BoundaryTable({ recon }: { recon: Reconciliation }) {
         })}
       </tbody>
     </table>
+    </div>
   );
 }
