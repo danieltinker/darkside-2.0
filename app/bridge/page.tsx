@@ -11,7 +11,7 @@ export default function BridgePage() {
   return (
     <div className="min-h-screen">
       <TopNav active="bridge" />
-      <main className="mx-auto max-w-6xl px-5 py-6">
+      <main className="mx-auto max-w-6xl px-5 pt-6 pb-24">
         <div className="mb-4">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-accent-cyan">
             PixelBridge · filesystem
