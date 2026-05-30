@@ -1,14 +1,18 @@
 {
   "name": "darkside",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
+  "engines": {
+    "node": ">=20.11.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "diagnose": "node scripts/diagnose.mjs"
   },
   "dependencies": {
     "next": "^15.1.0",

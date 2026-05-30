@@ -6,9 +6,14 @@ const LINKS = [
   { href: "/yoda", label: "Yoda · static", key: "yoda" },
   { href: "/vader", label: "Vader · dynamic", key: "vader" },
   { href: "/bridge", label: "PixelBridge · fs", key: "bridge" },
+  { href: "/diagnostics", label: "Diagnostics", key: "diagnostics" },
 ] as const;
 
-export function TopNav({ active }: { active: "home" | "queue" | "yoda" | "vader" | "bridge" }) {
+export function TopNav({
+  active,
+}: {
+  active: "home" | "queue" | "yoda" | "vader" | "bridge" | "diagnostics";
+}) {
   return (
     <header className="sticky top-0 z-20 border-b border-edge bg-bg-base/85 backdrop-blur">
       <div className="flex h-12 w-full items-center justify-between gap-3 overflow-x-auto px-6 lg:px-10">
