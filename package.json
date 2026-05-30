@@ -2,6 +2,7 @@
   "name": "darkside",
   "version": "0.3.0",
   "private": true,
+  "license": "UNLICENSED",
   "engines": {
     "node": ">=20.11.0"
   },
@@ -12,7 +13,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "diagnose": "node scripts/diagnose.mjs"
+    "diagnose": "node scripts/diagnose.mjs",
+    "preflight": "node scripts/preflight.mjs"
   },
   "dependencies": {
     "next": "^15.1.0",
