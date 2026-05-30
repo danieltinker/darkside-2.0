@@ -1,73 +1,70 @@
-# darkside — Week-to-Deploy Roadmap
+# darkside — Week-to-Deploy Roadmap (LOCKED 2026-05-30)
 
-**Date:** 2026-05-30
-**North star:** the **first real two-machine end-to-end test** (Yoda machine ↔ device-carried bundle ↔ Darth Vader machine), and a clear path to a **full deploy**.
-**Status now:** single Next.js app, gem-driven Rubric/Gem layer on `main`, real filesystem PixelBridge with airgapped export/import bundles, premium responsive UI (full-width desktop, no overflow). Dynamic side is still simulated (no real Frida/device yet).
+**North star:** the **first real two-machine e2e** — a batch of locked apps flows through a **case queue**, Sky Walker analyzes decompiled code on the Yoda machine, missions are carried on the device to the Darth Vader machine, and Vader runs the **real rig** (Frida server, rooted device, NordVPN, HTTPToolkit, logcat — all already installed there) through a **pluggable tool layer**, returning verified evidence that reconciles to a score.
 
----
+**Status:** gem-driven Rubric/Gem layer + real filesystem PixelBridge + responsive full-width UI on `main`. Single golden case, single 8-pt chain, dynamic side simulated.
 
-## The 6 workstreams (from the brief)
-
-### 1. Screenshot evidence component
-**Goal:** screenshots are first-class evidence attached per node, not just a thumbnail.
-- A dedicated `ScreenshotEvidence` component: full-size view, zoom/lightbox, caption, timestamp, sha256, and the node it proves.
-- Vader attaches real captured PNGs (already modeled as `Artifact{kind:"screenshot"}`); make the viewer support multiple screenshots/node and a gallery.
-- Wire into the bundle: screenshots already travel as base64 artifacts in `EvidenceBundle`; verify large-image bundles import cleanly (size budget + integrity).
-- **Acceptance:** a node can carry N screenshots; reviewer can open full-res; sha256 verified on import.
-
-### 2. Add rubrics / chains / graphs (the knowledge library)
-**Goal:** prove the gem layer scales by adding the real chains you'll append.
-- Author the **4-pt and 2-pt chains** for `attribution_gated_webview_uncloaking` (e.g. remote-config/Firebase URL→WebView *without* a cloaking gate = a distinct complete 4-pt behavior) — exercises cross-chain partial scoring (8 / 8+4 / …).
-- Add the **`cloaking_gate` boundary node** + the 13-node behavioral graph variant (the spec's richer graph) so the gate is explicit.
-- Add a **second rubric** under riskware to validate Yoda's multi-rubric dispatch + `aggregateScore` (wire `aggregateScore` into the live reconcile path — currently forward scaffolding).
-- **Acceptance:** dropping a new `rubrics/<id>/*.yaml` + registering it in `category.yaml` makes it appear and score with zero code changes.
-
-### 3. Testing
-**Goal:** lock the invariants before two machines depend on them.
-- Unit: extend `lib/gems` tests (scoreStaticPotential thresholds, aggregateScore multi-chain, loader rejects malformed YAML).
-- Contract round-trip: a test that `produce → pack → import` preserves checksums + every artifact sha256 (assert against `bridge-fs`).
-- **E2E (Playwright):** script the full UI airgap — Yoda stage→export, Vader import→run→export, Yoda import→reconcile→Strong 8 — as a CI-runnable spec. Add `data-testid`s where selectors are fragile.
-- **Acceptance:** `npm test` + an `npm run e2e` both green in CI.
-
-### 4. Prompt optimization (the gems)
-**Goal:** make the Sky Walker / Yoda / reconciliation gems reliable when a real LLM runs them.
-- Build a tiny **eval harness**: feed the gem + a decompiled-sources fixture to a model, score the `static_potential_report` against a golden expectation (boundaries found, qualifies_for_vader, dynamic aids emitted).
-- Iterate gem wording for: behavior-over-names matching, honest boundary status, never inventing partial credit. Use the `prompt-optimizer` skill.
-- Add 2–3 negative fixtures (benign SDK-only, WebView-only) to confirm the gems reject false positives.
-- **Acceptance:** gems pass the eval on the golden case + reject the FP fixtures, on the target model.
-
-### 5. Two-machine-ready zipped projects
-**Goal:** one runnable bundle per machine for the first real e2e.
-- Introduce a **`ROLE` env** (`yoda` | `vader`): the app boots locked to one side (route guard + nav hides the other machine), with its own `bridge/` dir on that machine's disk.
-- A `scripts/package.mjs` that emits **`darkside-yoda.zip`** and **`darkside-vader.zip`** — each a self-contained app (`npm ci && npm run build && npm start`) pinned to its role, plus an **operator README** (how to stage/export, carry the bundle on the device, import, run, carry back).
-- The airgap transport is already real (export downloads a bundle file; import uploads it + verifies sha256) — this is the seam the two machines use.
-- **Acceptance:** unzip on two laptops, run the full mission→evidence→reconcile loop by hand-carrying two `.json` bundles; Yoda lands on Strong 8.
-
-### 6. Full deploy
-**Goal:** a hosted demo + the real-machine path.
-- **Deploy gotcha (decide):** the real fs bridge writes to `./bridge` — Vercel serverless fs is ephemeral/read-only except `/tmp`. Options: (a) hosted **demo mode** that uses the in-process/`/tmp` bridge for a single-session showcase; (b) back the bridge with Vercel Blob/KV; (c) keep the airgap (real machines) off-Vercel and deploy only a **read-only demo** of the UI. Recommend (a) for the hosted demo + (c)'s zips for the real test.
-- Add `vercel.ts` config, env wiring, and a `DEMO=1` mode that auto-seeds a populated case.
-- **Acceptance:** a public URL shows the full reconciled proof; the zips run the real two-machine loop locally.
+## Locked decisions (2026-05-30)
+1. **Deploy:** local **role-gated zips only** this week — no hosted demo.
+2. **Role-gating:** **hard-lock per `ROLE`** (`yoda` | `vader`) — each zip shows only its machine.
+3. **Dynamic:** do **not** build the device rig (it exists on the Vader machine). Build a **pluggable tool layer**: typed adapters (mock locally / real on the machine) + **one global tool catalog** the Vader agent is instructed from. Adding a capability = one catalog entry.
+4. **Multi-chain:** add a **4-pt chain alongside the 8-pt in the attribution rubric**; show the investigation total summing confirmed chains (8 → 8+4).
+5. **Intake:** a batch = a **list of `{packageName, category, metadata_score}`** + per-case **decompiled-code folder** (Sky Walker static) + **APK** (Vader install). `metadata_score >= 8` qualifies for dispatch. The Yoda machine's existing locked-apps list + manual decompile/install pages get **harmonized into one queue view** (later).
 
 ---
 
-## Suggested week sequence
+## Workstreams
 
-- **Day 1–2:** #2 chains/graphs (4-pt + 2-pt + 2nd rubric, wire `aggregateScore`) + #3 contract round-trip test. Highest leverage: proves the scaling thesis and locks scoring.
-- **Day 2–3:** #1 screenshot evidence component + bundle size/integrity check.
-- **Day 3–4:** #5 ROLE env + packaging zips + operator README → **dry-run the two-machine loop** on two local checkouts.
-- **Day 4–5:** #4 prompt eval harness + gem iteration (first real LLM in the loop on the static side).
-- **Day 5:** #3 Playwright e2e in CI + #6 hosted demo mode.
-- **End of week:** first real two-machine e2e (real bundle carry; dynamic still mock-or-first-Frida) + a public demo URL.
+### A. Pluggable tool layer + global catalog  *(unblocks the real Vader rig)*
+- `gems/tools/catalog.yaml` — one declarative catalog. Each tool: `id`, `capability` (`instrument` | `http_capture` | `log_capture` | `geo_control` | `device_fs` | `payload_pull` | `screenshot` | `decompile` | `apk_download` | `install`), `owner_machine` (`yoda`|`vader`), description, agent-invocation note, `status`.
+  - Seed it with the rig you have: Frida→`instrument`, HTTPToolkit→`http_capture`, logcat→`log_capture`, NordVPN→`geo_control`, rooted device→`device_fs`/`payload_pull`, screenshot; plus Yoda-side `decompile`/`apk_download`/`install`.
+- `lib/tools/types.ts` + `lib/tools/registry.ts` — typed `ToolAdapter { id, capability, run(args) }`; a registry that loads the catalog. **Mock adapters** in-repo; the Vader machine swaps **real adapters** (no setup here — just the plug points).
+- Rubric `evidence_contract` references **capabilities**, not specific tools; `buildVaderExperiments` maps required boundaries → capabilities → catalog tools.
+- The **Vader gem** is generated/instructed from the catalog ("you have these tools…").
+- **Acceptance:** adding a tool to `catalog.yaml` makes it available to the experiment plan + shows in the UI; mock run produces the golden evidence; real adapters drop in on the machine.
+
+### B. Case queue + batch intake  *(the multi-package backbone)*
+- Data model: `Case { package_name, category, metadata_score, identity, decompiled_path?, apk_path?, status }`; a `Batch` = `Case[]`.
+- Intake adapters (via the catalog): accept a `{packageName, category, metadata_score}` JSON list; `apk_download` + `install` (Vader); produce/point to a `decompiled_path` (Yoda) for Sky Walker.
+- **Queue view both sides** (hard-locked by role): Yoda = review/dispatch queue (sorted by metadata_score, gate at ≥8); Vader = run queue. Per-case status through the pipeline (`queued → static → qualified → carried → running → evidence → reconciled`).
+- Bridge already keys by `mission_id` → supports N concurrent cases; add a **batch bundle** (carry many missions/evidence in one device file) + per-case progress.
+- **Acceptance:** drop a batch list → queue populates → process several cases → per-case scores aggregate; one device bundle carries the batch.
+
+### C. Multi-chain scoring (8 + 4)
+- Author the **4-pt chain** in `attribution_gated_webview_uncloaking` (remote-config/Firebase URL→WebView, **no** cloaking gate = a complete lower-severity behavior) + the `cloaking_gate` node for the 8-pt path.
+- **Wire `aggregateScore` into the live reconcile path** (retire the duplicate vs `score.ts`); footer shows `8` or `8+4=12 / max`.
+- **Acceptance:** UI shows the investigation total summing only confirmed chains; partial (one chain confirmed) reads correctly.
+
+### D. Screenshot evidence component
+- `ScreenshotEvidence`: full-res lightbox, multiple shots/node, caption + timestamp + sha256 + node link; gallery on the reconciled card. Verify large-image bundles import with integrity.
+- **Acceptance:** a node carries N screenshots, openable full-res, sha256-verified on import.
+
+### E. Testing
+- Unit: tool registry/adapters (mock), `scoreStaticPotential` thresholds, multi-chain `aggregateScore`, malformed-YAML rejection.
+- Contract: `produce → pack → import` preserves checksums + every artifact sha256 (incl. batch bundles).
+- **Playwright e2e:** full UI airgap loop (stage → export → import → run(mock) → export → import → reconcile → Strong 8), CI-runnable.
+- **Acceptance:** `npm test` + `npm run e2e` green in CI.
+
+### F. Prompt evals (gems)
+- Eval harness: gem + decompiled-sources fixture → score `static_potential_report` vs golden (boundaries, qualifies_for_vader, dynamic aids). Negative fixtures (SDK-only, WebView-only) must reject.
+- Vader gem now reads the **tool catalog** — eval that it picks correct capabilities per boundary.
+- **Acceptance:** gems pass golden + reject FPs on the target model.
+
+### G. Two-machine zips  *(the deliverable)*
+- `ROLE` env (`yoda`|`vader`): route guard + nav hides the other machine; per-machine `bridge/` dir.
+- `scripts/package.mjs` → **`darkside-yoda.zip`** + **`darkside-vader.zip`**, each self-contained (`npm ci && build && start`) pinned to its role, with an **operator README** (intake a batch, stage, export, carry the device bundle, import, run via the rig, carry back, reconcile) and a **tool-catalog stub** for the Vader machine to fill with real adapters.
+- **Acceptance:** unzip on the two machines, run a batch end-to-end with real Vader tooling, reconcile to scores.
 
 ---
 
-## Key decisions to confirm (for the morning)
-1. **Deploy target:** hosted demo (Vercel `/tmp` demo mode) vs. only the local two-machine zips vs. both? (Recommend both.)
-2. **Real Frida scope for the first e2e:** keep Vader simulated (real *transport*, mock *dynamic*) for the first two-machine run, then add real Frida next iteration? (Recommend yes — de-risks by testing the airgap first.)
-3. **4-pt chain identity:** confirm the Firebase/remote-config-without-gate behavior as the canonical 4-pt chain (you said you'd append real chains — drop them in `gems/riskware/rubrics/` and we wire them).
-4. **Role-gating:** hard lock per `ROLE` (recommended for the real test) vs. keep both routes visible.
+## Suggested sequence
+- **Day 1:** C (4-pt chain + wire aggregateScore) + start E (contract round-trip) — locks scoring before scale.
+- **Day 1–2:** B (Case/Batch model + queue views, role-aware) — the backbone everything else hangs on.
+- **Day 2–3:** A (tool catalog + typed adapters + experiment-plan mapping + Vader gem from catalog).
+- **Day 3–4:** G (ROLE lock + packaging zips + operator README) → dry-run the two-machine loop locally (mock tools).
+- **Day 4:** D (screenshot evidence) + E (Playwright e2e in CI).
+- **Day 5:** F (gem evals, first real LLM on static) → hand the zips to the real machines for the **first real two-machine e2e** (real Vader rig via the adapters).
 
-## Carry-over follow-ups (small, from the merged PR's review)
-- Wire `aggregateScore` into the live reconcile/Yoda path (retire the duplicate vs `score.ts`) — folds into #2.
-- Demo route currently pairs the gem mission with hand-authored evidence; derive evidence node-ids from the compiled mission to prevent silent desync — folds into #3.
+## Carry-over (from the merged PR review)
+- Wire `aggregateScore` into the live path (folds into C).
+- Demo route: derive evidence node-ids from the compiled mission to prevent desync (folds into E).
