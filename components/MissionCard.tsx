@@ -42,12 +42,19 @@ function Header({
           </span>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-ink-muted">
-          <span>{id.developer}</span>
+          <span>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">dev </span>
+            {id.developer}
+          </span>
           <span className="text-ink-faint">·</span>
-          <span className="font-mono">{id.top_countries.join(" · ")}</span>
+          <span title="Top install countries — static geo-targeting hint from the listing (not a live control)">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">geo </span>
+            <span className="font-mono">{id.top_countries.join(" · ")}</span>
+          </span>
           <span className="text-ink-faint">·</span>
-          <span className="font-mono text-ink-muted" title="QueueLockID">
-            {mission.queue_lock.lock_id}
+          <span title="QueueLockID — Yoda's lease on this case">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-ink-faint">lock </span>
+            <span className="font-mono">{mission.queue_lock.lock_id}</span>
           </span>
         </div>
       </div>
@@ -155,9 +162,15 @@ export function MissionCard({
         />
       </div>
       <div className="border-t border-edge px-5 py-4">
-        <p className="mb-2 font-mono text-[11px] uppercase tracking-wider text-ink-muted">
-          Boundary proof
-        </p>
+        <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-muted">
+            Boundary proof
+          </p>
+          <span className="font-mono text-[10.5px] text-ink-faint">
+            {recon.requiredNodes.length} scored boundaries across {recon.bands.length} pipeline phases —
+            setup/instrumentation phases aren&apos;t scored, so the count is lower than the action steps.
+          </span>
+        </div>
         <BoundaryTable recon={recon} />
       </div>
       <ScoringFooter recon={recon} footerExtra={footerExtra} />

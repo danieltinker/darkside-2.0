@@ -4,6 +4,9 @@ import type { ArtifactContent } from "@/lib/mock";
 import type { NodeKind } from "@/lib/contract";
 import { StatusChip, DynamicStatusChip, type ChipTone } from "./StatusChip";
 import { EvidenceViewer } from "./EvidenceViewer";
+import { CopyButton } from "./CopyButton";
+import { HookDialog } from "./HookDialog";
+import { fridaHookScript } from "@/lib/frida";
 
 const KIND_TONE: Record<NodeKind, ChipTone> = {
   trigger: "cyan",
@@ -143,8 +146,11 @@ function StaticColumn({ rn, urlIntel }: { rn: ReconciledNode; urlIntel?: UrlInte
             <span className="text-ink-faint">.</span>
             {sig.method}
           </div>
-          <div className="font-mono text-[10.5px] text-ink-muted">
-            {sig.file_path}:{sig.line}
+          <div className="flex items-center gap-2 font-mono text-[10.5px] text-ink-muted">
+            <span className="min-w-0 truncate">
+              {sig.file_path}:{sig.line}
+            </span>
+            <CopyButton text={`${sig.file_path}:${sig.line}`} label="⧉ path" />
           </div>
           <pre className="overflow-x-auto rounded-md border border-edge-faint bg-bg-void/70 p-2.5 font-mono text-[11px] leading-relaxed text-ink-secondary">
             {sig.snippet}
@@ -178,8 +184,16 @@ function DynamicColumn({
         </span>
         <DynamicStatusChip status={rn.status} />
       </div>
-      <div className="font-mono text-[10.5px] text-ink-muted">
-        <span className="text-ink-faint">frida_hook</span> {rn.node.frida_hook}
+      <div className="flex flex-wrap items-center gap-2 font-mono text-[10.5px] text-ink-muted">
+        <span className="min-w-0 truncate">
+          <span className="text-ink-faint">frida_hook</span> {rn.node.frida_hook}
+        </span>
+        <CopyButton text={rn.node.frida_hook} label="⧉ hook" />
+        <HookDialog
+          title={`${rn.node.node_id} · ${rn.node.label}`}
+          subtitle={rn.node.frida_hook}
+          code={fridaHookScript(rn.node)}
+        />
       </div>
       {!ev ? (
         <div className="rounded-md border border-dashed border-edge bg-bg-void/40 p-3 text-center font-mono text-[11px] text-ink-muted">
