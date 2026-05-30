@@ -5,9 +5,17 @@ version: 0.1.0
 status: active
 operating_model: { static_owner: yoda, dynamic_owner: darth_vader, bridge: pixelbridge, human_review_required: true }
 dispatch_gate: { metadata_score_gte: 8 }     # GATE 1: Yoda dispatches Sky Walker only when metadata_score >= 8
-scoring_model: { strong: 8, medium: 4, weak: 2, confirmed_tp_threshold: 8 }
+scoring_model: { strong: 8, medium: 4, weak: 2, non_signal: 0, confirmed_tp_threshold: 8 }
+# Rubrics processed from the private riskware source-of-truth spreadsheet.
+# One Sky Walker gem serves all riskware rubrics (split per-rubric at scale).
 rubrics:
-  - rubric_id: attribution_gated_webview_uncloaking
+  - rubric_id: attribution_gated_webview_uncloaking   # detailed 9-node graph (= MMP cloaking's strong webview chain)
+    status: active
+    skywalker_gem: gems/riskware/skywalker.gem.md
+  - rubric_id: arbitrary_obfuscated_url_loading        # signal-level chains (10), no graph yet
+    status: active
+    skywalker_gem: gems/riskware/skywalker.gem.md
+  - rubric_id: command_and_control                     # known-riskware-URL signal (ties to lib/known-urls.ts)
     status: active
     skywalker_gem: gems/riskware/skywalker.gem.md
 learning_policy: { canonical_gems_mutable_by_agent: false, human_approval_required_for_promotion: true, auto_promote: false }

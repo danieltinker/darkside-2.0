@@ -1,0 +1,16 @@
+# GENERATED from the private riskware source-of-truth spreadsheet.
+# Do not hand-edit; regenerate from source. Source stays out of git.
+rubric_id: arbitrary_obfuscated_url_loading
+gem_type: rubric
+category: riskware
+name: Arbitrary or obfuscated URL loading
+description: Loading unpredictable or misleading URLs to disguise intent that might trigger behavior change
+version: 0.1.0
+status: active
+severity: high
+points_if_strong: 8
+scoring:
+  strong: 8
+  medium: 4
+  weak: 2
+  non_signal: 0

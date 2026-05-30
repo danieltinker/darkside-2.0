@@ -1,13 +1,19 @@
 import { z } from "zod";
 
+// A chain is a weighted SIGNAL (from the riskware source-of-truth spreadsheet).
+// strength → points: strong=8, medium=4, weak=2, non_signal=0. Scored binary per
+// chain. A detailed flow graph is OPTIONAL enrichment (required_boundaries/
+// required_nodes present only for fully-traced chains like the MMP webview one);
+// most chains are signal-level (name + strength) until a graph is authored.
 export const ChainSchema = z.object({
   chain_id: z.string(),
   name: z.string(),
-  strength: z.enum(["strong", "medium", "weak"]),
-  points: z.union([z.literal(8), z.literal(4), z.literal(2)]),
+  description: z.string().optional(),
+  strength: z.enum(["strong", "medium", "weak", "non_signal"]),
+  points: z.union([z.literal(8), z.literal(4), z.literal(2), z.literal(0)]),
   score_mode: z.literal("all_or_nothing"),
-  required_boundaries: z.array(z.string()),
-  required_nodes: z.array(z.string()),
+  required_boundaries: z.array(z.string()).optional(),
+  required_nodes: z.array(z.string()).optional(),
 });
 export type Chain = z.infer<typeof ChainSchema>;
 

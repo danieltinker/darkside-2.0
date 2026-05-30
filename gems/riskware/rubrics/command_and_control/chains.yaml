@@ -1,0 +1,13 @@
+# GENERATED from the private riskware source-of-truth spreadsheet.
+# Do not hand-edit; regenerate from source. Source stays out of git.
+rubric_id: command_and_control
+chains_version: 0.1.0
+chains:
+- chain_id: command_and_control__known_riskware_urls_a_url_is_considered_known_riskwa
+  name: "Known riskware URLs. \nA URL is considered known Riskware URL if it has been used by at least\n\
+    5 Apps on Play and 2 of them (0.4 Precision) have been found as TP for Riskware Major. \n\nNote: Precision\
+    \ should be >= 0.4\nNote: You might use either the full domain or \nthe root one as long as DONT's\
+    \ are followed. (e.g., www.example.com or example.com)"
+  strength: strong
+  points: 8
+  score_mode: all_or_nothing

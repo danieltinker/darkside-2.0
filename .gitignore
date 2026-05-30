@@ -27,3 +27,6 @@ riskware_agent_prompt.md
 /.private/
 /_private/
 **/riskware_chains/
+# unzipped chains lib (the zip extracts to a top-level riskware/ folder)
+/gems/riskware/riskware/
+**/__MACOSX/

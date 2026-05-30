@@ -13,6 +13,10 @@ export function getCompiledMission(): MissionContext {
   const chain = loadChains(RUBRIC).chains[0];
   const flow = compileFlowGraph(loadGraphGem(RUBRIC));
 
+  // The mission's headline chain must be a scored signal (8/4/2), never non_signal(0).
+  const points = chain.points;
+  if (points === 0) throw new Error(`golden mission chain ${chain.chain_id} is non_signal`);
+
   const aids = {
     frida_hooks: flow.nodes.map((n) => ({ node_id: n.node_id, target: n.frida_hook })),
     mock_responses: [
@@ -38,7 +42,7 @@ export function getCompiledMission(): MissionContext {
       rubric_id: RUBRIC,
       chain_id: chain.chain_id,
       name: "Attribution-Gated WebView Uncloaking",
-      points_if_strong: chain.points,
+      points_if_strong: points,
       gem_version: cat.version,
     },
     dynamic_aids: aids,

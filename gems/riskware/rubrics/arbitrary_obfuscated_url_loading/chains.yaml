@@ -1,0 +1,55 @@
+# GENERATED from the private riskware source-of-truth spreadsheet.
+# Do not hand-edit; regenerate from source. Source stays out of git.
+rubric_id: arbitrary_obfuscated_url_loading
+chains_version: 0.1.0
+chains:
+- chain_id: arbitrary_obfuscated_url_loading__obfuscated_url
+  name: Obfuscated URL
+  strength: weak
+  points: 2
+  score_mode: all_or_nothing
+- chain_id: arbitrary_obfuscated_url_loading__persisting_and_reloading_a_redirected_url
+  name: Persisting and Reloading a Redirected URL
+  strength: strong
+  points: 8
+  score_mode: all_or_nothing
+- chain_id: arbitrary_obfuscated_url_loading__loads_url_from_http_tcp_udp_response_in_webview_not
+  name: Loads URL from HTTP/TCP/UDP Response in webview (NOT from ads provider)
+  strength: strong
+  points: 8
+  score_mode: all_or_nothing
+- chain_id: arbitrary_obfuscated_url_loading__loads_url_from_http_tcp_udp_response_in_external_bro
+  name: Loads URL from HTTP/TCP/UDP Response in external browser via intent (NOT from ads provider)
+  strength: strong
+  points: 8
+  score_mode: all_or_nothing
+- chain_id: arbitrary_obfuscated_url_loading__loadurl_of_a_website_obtained_from_firebase
+  name: LoadUrl of a website obtained from firebase
+  strength: strong
+  points: 8
+  score_mode: all_or_nothing
+- chain_id: arbitrary_obfuscated_url_loading__app_retrieves_a_url_that_would_break_policy_if_loade
+  name: App retrieves a URL that would break policy if loaded from a 1st party C2
+  strength: medium
+  points: 4
+  score_mode: all_or_nothing
+- chain_id: arbitrary_obfuscated_url_loading__url_from_external_configuration_sdk
+  name: URL from External Configuration (SDK)
+  strength: strong
+  points: 8
+  score_mode: all_or_nothing
+- chain_id: arbitrary_obfuscated_url_loading__static_app_loads_url_conditionally_according_to_anot
+  name: '[Static] App loads URL conditionally according to another static evasion signal'
+  strength: strong
+  points: 8
+  score_mode: all_or_nothing
+- chain_id: arbitrary_obfuscated_url_loading__app_loads_privacy_policy_with_deep_link_in_html
+  name: App loads privacy policy with deep link in HTML
+  strength: medium
+  points: 4
+  score_mode: all_or_nothing
+- chain_id: arbitrary_obfuscated_url_loading__app_loads_bare_non_private_ip_into_webview
+  name: App loads bare non-private IP into WebView
+  strength: medium
+  points: 4
+  score_mode: all_or_nothing
