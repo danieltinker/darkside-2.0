@@ -85,7 +85,8 @@ function buildSourcesTree(base: string): FsNode {
   // Group nodes by file_path — one file can back several nodes.
   const byFile = new Map<string, FlowNode[]>();
   for (const n of mmpCloakingGraph.nodes) {
-    const fp = n.signature.file_path;
+    const fp = n.signature?.file_path;
+    if (!fp) continue; // role-level nodes carry no per-app source file
     const list = byFile.get(fp) ?? [];
     list.push(n);
     byFile.set(fp, list);
@@ -107,7 +108,7 @@ function buildSourcesTree(base: string): FsNode {
           path: acc,
           kind: "source",
           present: true, // static analysis is done before the flow runs
-          meta: nodes.map((n) => `:${n.signature.line}`).join(" "),
+          meta: nodes.map((n) => `:${n.signature?.line ?? "?"}`).join(" "),
           nodeIds: nodes.map((n) => n.node_id),
           detail: { type: "source", filePath },
         });
@@ -142,19 +143,6 @@ function buildYoda(): FsNode {
             detail: { type: "apk" },
           },
           buildSourcesTree(ws),
-          dir("lib", `${ws}/lib`, [
-            dir("arm64-v8a", `${ws}/lib/arm64-v8a`, [
-              {
-                name: "libcloak.so",
-                path: `${ws}/lib/arm64-v8a/libcloak.so`,
-                kind: "native",
-                present: true,
-                meta: "INERT",
-                nodeIds: ["n3_native"],
-                detail: { type: "native", runtime: false },
-              },
-            ]),
-          ]),
         ]),
       ],
       "static analysis",
@@ -263,7 +251,6 @@ function buildVader(p: BridgePhase): FsNode {
   // The device shows runtime artifacts once Vader has run (evidence produced).
   const ran = p.evidenceInVaderOutbox;
   const id = missionContext.case_identity;
-  const native = evidenceReturn.native_files[0];
   const dropper = extractedPayloads[0];
   const pid = "14233";
 
@@ -301,19 +288,6 @@ function buildVader(p: BridgePhase): FsNode {
                 ]),
               ]),
             ]),
-          ]),
-        ]),
-        dir("system", "vader/device/system", [
-          dir("lib64", "vader/device/system/lib64", [
-            {
-              name: native.name,
-              path: "vader/device/system/lib64/libcloak.so",
-              kind: "native",
-              present: ran,
-              meta: native.confirmed_active ? "ACTIVE" : "loaded",
-              nodeIds: ["n3_native"],
-              detail: { type: "native", runtime: true },
-            },
           ]),
         ]),
         dir("proc", "vader/device/proc", [

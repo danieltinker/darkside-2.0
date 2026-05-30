@@ -31,7 +31,11 @@ export function BoundaryTable({ recon }: { recon: Reconciliation }) {
               <td className="py-1.5 pr-2 text-ink-secondary">{BOUNDARY_LABEL[b] ?? b}</td>
               <td className="pr-2"><StatusChip tone={tone} dot label={n.status} /></td>
               <td className="pr-2 font-mono text-[11px] text-ink-muted">{n.node.node_id}</td>
-              <td className="font-mono text-[11px] text-ink-muted">{n.node.signature.class_name}.{n.node.signature.method.split("(")[0]}</td>
+              <td className="font-mono text-[11px] text-ink-muted">
+                {n.node.signature
+                  ? `${n.node.signature.class_name}.${n.node.signature.method.split("(")[0]}`
+                  : "—"}
+              </td>
             </tr>
           );
         })}

@@ -2,9 +2,11 @@ import type { Reconciliation, ReconciledNode } from "@/lib/reconcile";
 import { StatusChip } from "./StatusChip";
 
 const PHASE_LABEL: Record<string, string> = {
+  lifecycle: "Lifecycle & SDK setup",
   acquisition: "Acquire signal",
-  url_build: "Resolve destination",
-  sink: "Render in WebView",
+  cloaking_gate: "Cloaking gate",
+  url_resolution: "Resolve destination",
+  render: "Render in WebView",
 };
 
 function rollupStatus(nodes: ReconciledNode[]): "confirmed" | "failed" | "pending" {

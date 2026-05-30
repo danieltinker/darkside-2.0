@@ -36,30 +36,33 @@ const PANELS: {
 
 // ---- detail-pane renderers -------------------------------------------
 function SourceDetail({ filePath }: { filePath: string }) {
-  const nodes = mmpCloakingGraph.nodes.filter((n) => n.signature.file_path === filePath);
+  const nodes = mmpCloakingGraph.nodes.filter((n) => n.signature?.file_path === filePath);
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <StatusChip tone="green" label="Static evidence" />
         <span className="font-mono text-[11px] text-ink-muted">{filePath}</span>
       </div>
-      {nodes.map((n) => (
-        <div key={n.node_id} className="rounded-md border border-edge-faint bg-bg-void/50 p-3">
-          <div className="mb-1.5 flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[10.5px] text-ink-faint">{n.node_id}</span>
-            <span className="font-mono text-[12px] text-ink-primary">
-              <span className="text-ink-secondary">{n.signature.class_name}</span>.
-              {n.signature.method}
-            </span>
-            <span className="font-mono text-[10.5px] text-ink-faint">:{n.signature.line}</span>
-            {n.decryptor && <StatusChip tone="amber" label={`decryptor · ${n.decryptor.algorithm}`} />}
-            {n.produces_url && <StatusChip tone="red" label="produces url" />}
+      {nodes.map((n) => {
+        const sig = n.signature!; // nodes were filtered by sig.file_path, so always present
+        return (
+          <div key={n.node_id} className="rounded-md border border-edge-faint bg-bg-void/50 p-3">
+            <div className="mb-1.5 flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[10.5px] text-ink-faint">{n.node_id}</span>
+              <span className="font-mono text-[12px] text-ink-primary">
+                <span className="text-ink-secondary">{sig.class_name}</span>.
+                {sig.method}
+              </span>
+              <span className="font-mono text-[10.5px] text-ink-faint">:{sig.line}</span>
+              {n.decryptor && <StatusChip tone="amber" label={`decryptor · ${n.decryptor.algorithm}`} />}
+              {n.produces_url && <StatusChip tone="red" label="produces url" />}
+            </div>
+            <pre className="overflow-x-auto rounded border border-edge-faint bg-bg-void/80 p-2.5 font-mono text-[11px] leading-relaxed text-ink-secondary">
+              {sig.snippet}
+            </pre>
           </div>
-          <pre className="overflow-x-auto rounded border border-edge-faint bg-bg-void/80 p-2.5 font-mono text-[11px] leading-relaxed text-ink-secondary">
-            {n.signature.snippet}
-          </pre>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -103,33 +106,6 @@ function MessageDetail({ which }: { which: "mission" | "evidence" }) {
       <pre className="max-h-[440px] overflow-auto rounded-md border border-edge-faint bg-bg-void/80 p-3 font-mono text-[11px] leading-relaxed text-ink-secondary">
         {JSON.stringify(obj, null, 2)}
       </pre>
-    </div>
-  );
-}
-
-function NativeDetail({ runtime }: { runtime: boolean }) {
-  const nf = runtime
-    ? evidenceReturn.native_files[0]
-    : mmpCloakingGraph.nodes.find((n) => n.node_id === "n3_native")!.native_file!;
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <StatusChip tone="violet" label={`Native · ${nf.name}`} />
-        {nf.confirmed_active ? (
-          <StatusChip tone="green" dot label="Native Active" />
-        ) : (
-          <StatusChip tone="neutral" label="Native Inert" />
-        )}
-        <span className="font-mono text-[10.5px] text-ink-faint">
-          {runtime ? "Vader runtime" : "Yoda static"}
-        </span>
-      </div>
-      <dl className="space-y-1 rounded-md border border-edge-faint bg-bg-void/50 p-3 font-mono text-[11px] text-ink-muted">
-        <Row k="native_id" v={nf.native_id} />
-        <Row k="sha256" v={nf.sha256} />
-        {nf.exported_symbol && <Row k="export" v={nf.exported_symbol} />}
-      </dl>
-      <p className="text-[12px] italic text-ink-secondary">{nf.activity_note}</p>
     </div>
   );
 }
@@ -204,7 +180,6 @@ function DetailPane({ node }: { node: FsNode | undefined }) {
       {d.type === "source" && <SourceDetail filePath={d.filePath} />}
       {d.type === "artifact" && <ArtifactDetail artifactPath={d.artifactPath} />}
       {d.type === "message" && <MessageDetail which={d.which} />}
-      {d.type === "native" && <NativeDetail runtime={d.runtime} />}
       {d.type === "payload" && <PayloadDetail payloadId={d.payloadId} />}
       {d.type === "apk" && <ApkDetail />}
       {d.type === "proc" && <ProcDetail />}

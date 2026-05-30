@@ -12,6 +12,10 @@ const KIND_TONE: Record<NodeKind, ChipTone> = {
   parse: "violet",
   deobf: "amber",
   sink: "red",
+  condition: "amber", // the cloaking gate
+  benign_branch: "green", // decoy / harmless path
+  assessment: "violet",
+  verdict: "red",
 };
 
 function Decryptor({ rn }: { rn: ReconciledNode }) {
@@ -132,17 +136,25 @@ function StaticColumn({ rn, urlIntel }: { rn: ReconciledNode; urlIntel?: UrlInte
           <StatusChip tone="neutral" label="Unconfirmed" />
         )}
       </div>
-      <div className="font-mono text-[12px] text-ink-primary">
-        <span className="text-ink-secondary">{sig.class_name}</span>
-        <span className="text-ink-faint">.</span>
-        {sig.method}
-      </div>
-      <div className="font-mono text-[10.5px] text-ink-muted">
-        {sig.file_path}:{sig.line}
-      </div>
-      <pre className="overflow-x-auto rounded-md border border-edge-faint bg-bg-void/70 p-2.5 font-mono text-[11px] leading-relaxed text-ink-secondary">
-        {sig.snippet}
-      </pre>
+      {sig ? (
+        <>
+          <div className="font-mono text-[12px] text-ink-primary">
+            <span className="text-ink-secondary">{sig.class_name}</span>
+            <span className="text-ink-faint">.</span>
+            {sig.method}
+          </div>
+          <div className="font-mono text-[10.5px] text-ink-muted">
+            {sig.file_path}:{sig.line}
+          </div>
+          <pre className="overflow-x-auto rounded-md border border-edge-faint bg-bg-void/70 p-2.5 font-mono text-[11px] leading-relaxed text-ink-secondary">
+            {sig.snippet}
+          </pre>
+        </>
+      ) : (
+        <div className="rounded-md border border-dashed border-edge bg-bg-void/40 p-2.5 font-mono text-[10.5px] text-ink-muted">
+          role-level node — no per-app signature
+        </div>
+      )}
       <Decryptor rn={rn} />
       <NativeFile rn={rn} />
       {rn.node.produces_url && urlIntel && <KnownUrlBadge intel={urlIntel} />}

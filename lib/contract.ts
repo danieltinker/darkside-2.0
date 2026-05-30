@@ -62,14 +62,18 @@ export type NodeKind =
   | "http"
   | "parse"
   | "deobf"
-  | "sink";
+  | "sink"
+  | "condition" // the cloaking gate (branches benign vs uncloak)
+  | "benign_branch" // decoy/normal UI shown when the gate is not satisfied
+  | "assessment" // analysis step (AST / dynamic validation)
+  | "verdict"; // final rubric mark
 
 export type FlowNode = {
   node_id: string;
-  stage: 1 | 2 | 3;
+  stage?: 1 | 2 | 3; // legacy coarse stage; banding now uses `phase`
   label: string;
   kind: NodeKind;
-  signature: NodeSignature;
+  signature?: NodeSignature; // optional: blueprint/meta nodes carry no per-app code
   frida_hook: string; // exact hook target Vader will set
   static_confirmed: boolean; // Yoda located it in decompiled code
   produces_url?: boolean; // the node whose output is the affiliate URL (drives known-URL lookup)
@@ -81,9 +85,26 @@ export type FlowNode = {
   flexible_match?: { examples: string[]; match_type: string };
 };
 
-export type EdgeRelation = "calls" | "returns" | "data_to" | "triggers";
+export type EdgeRelation =
+  | "calls"
+  | "returns"
+  | "data_to"
+  | "triggers"
+  | "initializes"
+  | "registers"
+  | "async_triggers"
+  | "branch_benign"
+  | "branch_uncloaked"
+  | "resolves_or_requests"
+  | "destination_to_container"
+  | "loads";
 
-export type FlowEdge = { from: string; to: string; relation: EdgeRelation };
+export type FlowEdge = {
+  from: string;
+  to: string;
+  relation: EdgeRelation;
+  label?: string; // branch condition, e.g. "af_status == Non-organic"
+};
 
 export type FlowGraph = {
   entry: string; // node_id

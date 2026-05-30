@@ -23,8 +23,6 @@ import { domainOf, normalizeUrl } from "./known-urls";
 // =====================================================================
 
 export const MISSION_ID = "m_8821";
-const NATIVE_SHA256 =
-  "9f2c1ab4e7d3056b8c41fa92de77b0c5a3e1488f6b2d90147ca5e0b3f8d62719";
 
 export const caseIdentity: CaseIdentity = {
   case_id: "case_mmp_8821",
@@ -79,46 +77,130 @@ function shot(node: string, label: string, src: string, caption: string): Artifa
   return { kind: "screenshot", path, sha256: checksumHex(path + src), label };
 }
 
-// ---- Per-node dynamic evidence (Vader) ---------------------------------
+// ---- Per-node dynamic evidence (Vader) — 11-node traced graph ----------
+// Two experiments were run: an Organic control (→ benign decoy) and a
+// Non-organic uncloak (→ affiliate WebView). Together they PROVE the cloak gate.
 export const nodeEvidence: NodeEvidence[] = [
   {
-    node_id: "n1_callback",
+    node_id: "n1_launch",
     reconfirmed_static: true,
     dynamic_status: "confirmed",
-    observation: "onConversionDataSuccess fired; af_adset token captured and handed to a.invoke().",
+    observation: "AdsApplication.onCreate fired; Tracker.boot() initialized attribution before any UI.",
     artifacts: [
-      frida("n1_callback", "onConversionDataSuccess hook", [
+      frida("n1_launch", "Application.onCreate hook", [
         "[+] Attached to pid 14233 (com.coinflip.rewards)",
+        "[Frida] Hooking com.coinflip.rewards.AdsApplication.onCreate",
+        "[launch] super.onCreate(); Tracker.boot(this)",
+      ]),
+    ],
+  },
+  {
+    node_id: "n2_sdk_init",
+    reconfirmed_static: true,
+    dynamic_status: "confirmed",
+    observation: "AppsFlyer SDK initialized with the attribution listener wired in.",
+    artifacts: [
+      frida("n2_sdk_init", "AppsFlyerLib.init hook", [
+        "[Frida] Hooking com.appsflyer.AppsFlyerLib.init",
+        '[init] devKey="aF_dev_key" listener=com.adtrack.attr.AttribListener',
+        "[init] start(context)",
+      ]),
+    ],
+  },
+  {
+    node_id: "n3_listener",
+    reconfirmed_static: true,
+    dynamic_status: "confirmed",
+    observation: "An async AppsFlyerConversionListener (AttribListener) is registered to receive attribution.",
+    artifacts: [
+      frida("n3_listener", "listener registration", [
+        "[Frida] com.adtrack.core.Tracker.<clinit>",
+        "[listener] AppsFlyerConversionListener = com.adtrack.attr.AttribListener@1f",
+      ]),
+    ],
+  },
+  {
+    node_id: "n4_callback",
+    reconfirmed_static: true,
+    dynamic_status: "confirmed",
+    observation: "onConversionDataSuccess fired; attribution map entered app logic (boundary: acquisition signal).",
+    artifacts: [
+      frida("n4_callback", "onConversionDataSuccess hook", [
         "[Frida] Hooking com.adtrack.attr.AttribListener.onConversionDataSuccess",
         "[cb] data = {af_status=Non-organic, af_adset=af_adset_9183, campaign=mmp_q2, media_source=offerwall}",
-        '[cb] af_adset token => "af_adset_9183"',
         "[cb] -> a.invoke(data)",
       ]),
     ],
   },
   {
-    node_id: "n2_invoke",
+    node_id: "n5_unpack",
     reconfirmed_static: true,
     dynamic_status: "confirmed",
-    observation: "a.invoke orchestrated the build: GET → optString(dl) → B64.dec → MainActivity.o(url).",
+    observation: 'a.invoke read af_status="Non-organic" and the af_adset token, then called gate().',
     artifacts: [
-      frida("n2_invoke", "a.invoke trace", [
+      frida("n5_unpack", "field extraction hook", [
         "[Frida] Hooking com.adtrack.core.a.invoke",
-        "[invoke] entered with Map(7)",
-        '[invoke] g("af_adset_9183") -> 412-byte JSON',
-        '[invoke] optString("dl") -> "S0NmW1tdQ0pYW0FUX0ZRXl5dQ0pYW0FUX0ZR"',
-        `[invoke] B64.dec(dl) -> "${AFFILIATE_URL}"`,
-        "[invoke] MainActivity.o(url)",
+        '[invoke] af_status = "Non-organic"',
+        '[invoke] af_adset  = "af_adset_9183"',
+        "[invoke] -> gate(status, tok)",
       ]),
     ],
   },
   {
-    node_id: "n2_http",
+    node_id: "n6_gate",
     reconfirmed_static: true,
     dynamic_status: "confirmed",
-    observation: 'Tracker GET returned 200; the "dl" field carries the base64+XOR-wrapped URL (not in static strings).',
+    observation:
+      'CLOAK GATE proven both ways: af_status=="Non-organic" → uncloak; the Organic control took the benign branch.',
     artifacts: [
-      http("n2_http", "tracker GET / response", {
+      frida("n6_gate", "gate() branch decision (both experiments)", [
+        "[Frida] Hooking com.adtrack.core.a.gate",
+        '[exp:non_organic] gate(status="Non-organic") -> TRUE  -> MainActivity.o(B64.dec(...))   // UNCLOAK',
+        '[exp:organic]     gate(status="Organic")     -> FALSE -> MainActivity.benign()          // DECOY',
+        "[+] destination behavior is gated by acquisition metadata — cloaking confirmed",
+      ]),
+    ],
+  },
+  {
+    node_id: "n7a_benign",
+    reconfirmed_static: true,
+    dynamic_status: "confirmed",
+    observation: "Under the Organic control, the app showed a benign arcade UI (the decoy) — no WebView load.",
+    artifacts: [
+      frida("n7a_benign", "benign branch (Organic control)", [
+        "[exp:organic] [Frida] com.app.MainActivity.benign()",
+        "[exp:organic] setContentView(R.layout.activity_game)",
+        "[exp:organic] no WebView.loadUrl observed",
+      ]),
+      shot(
+        "n7a_benign",
+        "benign decoy (Organic control)",
+        "/screenshots/geo_baseline.svg",
+        "Organic install → harmless arcade screen",
+      ),
+    ],
+  },
+  {
+    node_id: "n7b_synth",
+    reconfirmed_static: true,
+    dynamic_status: "confirmed",
+    observation: `B64.dec unwrapped the tracker blob to the cleartext affiliate URL: ${AFFILIATE_URL}`,
+    artifacts: [
+      frida("n7b_synth", "B64.dec hook (cleartext recovered)", [
+        "[Frida] Hooking com.adtrack.util.B64.dec",
+        '[B64.dec] in  = "S0NmW1tdQ0pYW0FUX0ZRXl5dQ0pYW0FUX0ZR"',
+        "[B64.dec] key = KEY[16] @ B64.<clinit>",
+        `[B64.dec] out = "${AFFILIATE_URL}"`,
+      ]),
+    ],
+  },
+  {
+    node_id: "n8_resolve",
+    reconfirmed_static: true,
+    dynamic_status: "confirmed",
+    observation: 'Tracker GET returned 200; the "dl" field carries the base64+XOR-wrapped URL (boundary: destination resolution).',
+    artifacts: [
+      http("n8_resolve", "tracker GET / response", {
         method: "GET",
         url: "https://t.adtrack-cdn.com/c?ref=af_adset_9183",
         reqHeaders: {
@@ -128,11 +210,7 @@ export const nodeEvidence: NodeEvidence[] = [
         },
         status: 200,
         statusText: "OK",
-        respHeaders: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-store",
-          Server: "cloudfront",
-        },
+        respHeaders: { "Content-Type": "application/json", "Cache-Control": "no-store", Server: "cloudfront" },
         respBody: JSON.stringify(
           {
             status: "ok",
@@ -148,88 +226,32 @@ export const nodeEvidence: NodeEvidence[] = [
     ],
   },
   {
-    node_id: "n2_parse",
+    node_id: "n9_container",
     reconfirmed_static: true,
     dynamic_status: "confirmed",
-    observation: 'optString("dl") pulled the wrapped blob out of the tracker JSON.',
+    observation: "WebView prepared with JavaScript enabled before the load.",
     artifacts: [
-      frida("n2_parse", "JSONObject.optString hook", [
-        "[Frida] Hooking org.json.JSONObject.optString",
-        '[optString] key="dl" -> "S0NmW1tdQ0pYW0FUX0ZRXl5dQ0pYW0FUX0ZR"',
-        "[optString] (value is base64+XOR — not yet a URL)",
+      frida("n9_container", "WebView container prep", [
+        "[Frida] Hooking android.webkit.WebSettings.setJavaScriptEnabled",
+        "[container] setJavaScriptEnabled(true)",
+        "[container] full-screen WebView attached",
       ]),
     ],
   },
   {
-    node_id: "n2_deobf",
+    node_id: "n10_load",
     reconfirmed_static: true,
     dynamic_status: "confirmed",
-    observation: `B64.dec unwrapped the blob to the cleartext affiliate URL: ${AFFILIATE_URL}`,
+    observation: "WebView.loadUrl rendered the affiliate offer page with the cleartext URL (boundary: render).",
     artifacts: [
-      frida("n2_deobf", "B64.dec hook (cleartext recovered)", [
-        "[Frida] Hooking com.adtrack.util.B64.dec",
-        '[B64.dec] in  = "S0NmW1tdQ0pYW0FUX0ZRXl5dQ0pYW0FUX0ZR"',
-        "[B64.dec] key = KEY[16] @ B64.<clinit>",
-        `[B64.dec] out = "${AFFILIATE_URL}"`,
-      ]),
-    ],
-  },
-  {
-    node_id: "n3_o",
-    reconfirmed_static: true,
-    dynamic_status: "confirmed",
-    observation: "MainActivity.o received the cleartext URL and launched the Cloak coroutine.",
-    artifacts: [
-      frida("n3_o", "MainActivity.o hook", [
-        "[Frida] Hooking com.app.MainActivity.o",
-        `[o] url = "${AFFILIATE_URL}"`,
-        "[o] new Cloak(this).c(url)",
-      ]),
-    ],
-  },
-  {
-    node_id: "n3_coro",
-    reconfirmed_static: true,
-    dynamic_status: "confirmed",
-    observation: "Cloak coroutine resumed and dispatched into the native layer.",
-    artifacts: [
-      frida("n3_coro", "Cloak$c$1.invokeSuspend hook", [
-        "[Frida] Hooking com.app.Cloak$c$1.invokeSuspend",
-        "[coro] resumed label=1 $url=<cleartext>",
-        "[coro] -> Cloak.nativeDispatch($url)",
-      ]),
-    ],
-  },
-  {
-    node_id: "n3_native",
-    reconfirmed_static: true,
-    dynamic_status: "confirmed",
-    observation: "libcloak.so loaded; JNI export executed with the cleartext URL — native path CONFIRMED ACTIVE.",
-    artifacts: [
-      frida("n3_native", "libcloak.so JNI dispatch", [
-        "[Frida] Module loaded: libcloak.so base=0x7b41c00000 size=0x21000",
-        `[Frida] sha256(libcloak.so) = ${NATIVE_SHA256.slice(0, 16)}…  (matches static)`,
-        "[Frida] Hooking export Java_com_app_Cloak_nativeDispatch",
-        `[native] arg0(jstring) = "${AFFILIATE_URL}"`,
-        "[native] JNIEnv->CallVoidMethod(render, url)",
-        "[+] native path CONFIRMED ACTIVE",
-      ]),
-    ],
-  },
-  {
-    node_id: "n3_load",
-    reconfirmed_static: true,
-    dynamic_status: "confirmed",
-    observation: "WebView.loadUrl rendered the affiliate offer page with the cleartext URL.",
-    artifacts: [
-      frida("n3_load", "WebView.loadUrl hook", [
+      frida("n10_load", "WebView.loadUrl hook", [
         "[Frida] Hooking android.webkit.WebView.loadUrl",
         `[loadUrl] url = "${AFFILIATE_URL}"`,
         "[loadUrl] thread=main activity=com.app.MainActivity",
         "[+] affiliate page rendered (screenshot captured)",
       ]),
       shot(
-        "n3_load",
+        "n10_load",
         "rendered affiliate page",
         "/screenshots/mmp_affiliate.svg",
         "go.offerwall-aff.net — cloaked offer rendered in-app",
@@ -238,20 +260,10 @@ export const nodeEvidence: NodeEvidence[] = [
   },
 ];
 
-// ---- Native file (Vader's confirmed version) ---------------------------
-export const nativeFiles: NativeFile[] = [
-  {
-    native_id: "nf_libcloak_8821",
-    name: "libcloak.so",
-    sha256: NATIVE_SHA256,
-    exported_symbol: "Java_com_app_Cloak_nativeDispatch",
-    confirmed_active: true,
-    activity_note:
-      "module loaded at 0x7b41c00000; export executed with cleartext URL; sha256 matches static analysis.",
-  },
-];
+// No native module in this chain (the source blueprint has no JNI path).
+export const nativeFiles: NativeFile[] = [];
 
-// ---- Extracted payload (dropper found at runtime) ----------------------
+// ---- Extracted payload (dropper found during the uncloak run) ----------
 export const extractedPayloads: ExtractedPayload[] = [
   {
     payload_id: "pl_dropper_8821",
@@ -260,9 +272,9 @@ export const extractedPayloads: ExtractedPayload[] = [
     storage_path: "/payloads/cloak_dropper.bin",
     sha256: checksumHex("cloak_dropper.bin"),
     size_bytes: 53124,
-    found_at_node: "n3_native",
+    found_at_node: "n7b_synth",
     description:
-      "Second-stage dropper written by libcloak.so on first cloak dispatch; drops a DEX into the app private dir and loads it via DexClassLoader.",
+      "Second-stage dropper written during the uncloak branch; drops a DEX into the app private dir and loads it via DexClassLoader (see the runtime_loading_of_code rubric).",
   },
 ];
 

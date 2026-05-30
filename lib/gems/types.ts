@@ -81,12 +81,15 @@ const NativeFileSchema = z.object({
 
 export const GemNodeSchema = z.object({
   node_id: z.string(),
-  stage: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  stage: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
   phase: z.string(),
   boundary: z.string().nullable().optional(),
   behavioral_role: z.string().optional(),
   label: z.string(),
-  kind: z.enum(["trigger", "dispatch", "http", "parse", "deobf", "sink"]),
+  kind: z.enum([
+    "trigger", "dispatch", "http", "parse", "deobf", "sink",
+    "condition", "benign_branch", "assessment", "verdict",
+  ]),
   static_confirmed: z.boolean(),
   frida_hook: z.string(),
   produces_url: z.boolean().optional(),
@@ -106,7 +109,13 @@ export type GemNode = z.infer<typeof GemNodeSchema>;
 export const GemEdgeSchema = z.object({
   from: z.string(),
   to: z.string(),
-  relation: z.enum(["calls", "returns", "data_to", "triggers"]),
+  relation: z.enum([
+    "calls", "returns", "data_to", "triggers",
+    "initializes", "registers", "async_triggers",
+    "branch_benign", "branch_uncloaked", "resolves_or_requests",
+    "destination_to_container", "loads",
+  ]),
+  label: z.string().optional(),
 });
 
 export const GraphGemSchema = z.object({
