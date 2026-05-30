@@ -29,16 +29,39 @@ describe("case queue", () => {
     expect(mmp.score).toBe(8);
   });
 
-  it("device-info partial case accumulates medium+weak with no strong (root+emulator+adb+battery = 10)", () => {
+  it("device-info accumulates medium+weak with no strong anchor (root+emulator+adb+battery = 10)", () => {
     const dev = rows.find((r) => r.case_id === "case_dev_5512")!;
-    expect(dev.status).toBe("partial");
     expect(dev.score).toBe(10); // 2 + 2 + 2 + 4
     expect(dev.chains.some((c) => c.strength === "strong")).toBe(false);
   });
 
-  it("running / fp / locked cases score 0", () => {
-    for (const id of ["case_rt_7740", "case_url_9102", "case_dev_4410"]) {
-      expect(rows.find((r) => r.case_id === id)!.score).toBe(0);
+  it("a genuine sub-threshold partial exists (0 < score < 8)", () => {
+    const partial = rows.find((r) => r.status === "partial");
+    expect(partial, "expected at least one partial case").toBeTruthy();
+    expect(partial!.score).toBeGreaterThan(0);
+    expect(partial!.score).toBeLessThan(8);
+  });
+
+  it("verdict matches the 8-pt threshold (scored≥8, 0<partial<8, fp=0) — payload not required", () => {
+    const THRESHOLD = 8;
+    for (const row of rows) {
+      if (row.status === "scored") expect(row.score, row.case_id).toBeGreaterThanOrEqual(THRESHOLD);
+      if (row.status === "partial") {
+        expect(row.score, row.case_id).toBeGreaterThan(0);
+        expect(row.score, row.case_id).toBeLessThan(THRESHOLD);
+      }
+      if (row.status === "fp") expect(row.score, row.case_id).toBe(0);
     }
+  });
+
+  it("the device-info case clears the threshold without a payload (score 10 → scored TP)", () => {
+    const dev = rows.find((r) => r.case_id === "case_dev_5512")!;
+    expect(dev.status).toBe("scored");
+    expect(dev.score).toBe(10);
+  });
+
+  it("running cases score 0", () => {
+    expect(rows.find((r) => r.case_id === "case_rt_7740")!.score).toBe(0);
+    expect(rows.find((r) => r.case_id === "case_url_9102")!.score).toBe(0);
   });
 });

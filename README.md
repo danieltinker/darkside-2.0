@@ -92,6 +92,18 @@ diagnose the runtime break and ship a patched build.
 Both paths call the same core (`lib/diagnostics.ts` via `GET /api/diagnostics`), so the
 CLI and the UI report identically.
 
+### Dynamic preflight (Vader machine)
+
+Before a dynamic run, verify the analysis environment is alive — mandatory **HTTP
+Toolkit** + **NordVPN** + a connected **rooted device with network**, optional **Frida**:
+
+```bash
+npm run preflight     # or: Diagnostics page → "Run dynamic preflight"
+```
+
+It probes each tool (`alive`/`down`/`confirm`) and prints remediation; exit `0` only when
+all mandatory tools are alive. Full environment setup: **`docs/DYNAMIC-SETUP.md`**.
+
 ---
 
 ## Checks (for development / CI)

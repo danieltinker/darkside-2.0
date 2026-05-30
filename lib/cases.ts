@@ -14,9 +14,12 @@ import { caseIdentity as goldenIdentity, MISSION_ID } from "./mock";
 // real chain metadata from the gem files server-side (see lib/caseRows.ts).
 // =====================================================================
 
+// Verdict rule (confirmed_tp_threshold = 8): a case is a confirmed TP the moment
+// its binary-per-chain score reaches 8 — reaching a final payload is NOT required.
+// "partial" is reserved for a real, sub-threshold result (0 < score < 8).
 export type QueueStatus =
-  | "scored" // investigation complete → confirmed TP with a score
-  | "partial" // behavior change confirmed, no final payload (gradation)
+  | "scored" // confirmed TP — score ≥ 8 (no payload required)
+  | "partial" // confirmed signals but total below the 8-pt threshold (0 < score < 8)
   | "fp" // static suspicion not reproduced → failed, score 0
   | "running" // Vader running experiments
   | "locked"; // locked from the queue, not yet started
@@ -63,14 +66,14 @@ export const caseQueue: CaseRecord[] = [
     rubric_id: "device_info_cloaking",
     rubric_name: "Device info cloaking",
     metadata_score: 9,
-    status: "partial",
+    status: "scored",
     confirmed_chain_ids: [
       "device_info_cloaking__root_detection",
       "device_info_cloaking__emulator_detection",
       "device_info_cloaking__adb_enabled_detection",
       "device_info_cloaking__battery_percentage",
     ],
-    note: "Anti-analysis evasion confirmed (root/emulator/adb/battery) but no payload reached — partial.",
+    note: "Anti-analysis evasion confirmed (root/emulator/adb/battery) → score 10. 10 ≥ 8 = confirmed TP; reaching a final payload is NOT required to confirm.",
   },
   {
     case_id: "case_c2_6033",
@@ -142,8 +145,12 @@ export const caseQueue: CaseRecord[] = [
     rubric_id: "device_info_cloaking",
     rubric_name: "Device info cloaking",
     metadata_score: 12,
-    status: "locked",
-    confirmed_chain_ids: [],
-    note: "Locked from the queue; awaiting static analysis.",
+    status: "partial",
+    confirmed_chain_ids: [
+      "device_info_cloaking__root_detection",
+      "device_info_cloaking__emulator_detection",
+      "device_info_cloaking__touch_count",
+    ],
+    note: "Three weak evasion signals confirmed (root/emulator/touch = 6) — below the 8-pt TP threshold, so this is a genuine partial, not a confirmed TP.",
   },
 ];
