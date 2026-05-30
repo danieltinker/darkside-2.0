@@ -1,0 +1,30 @@
+# GENERATED from the private riskware source-of-truth spreadsheet.
+# Do not hand-edit; regenerate from source. Source stays out of git.
+rubric_id: runtime_loading_of_code
+chains_version: 0.1.0
+chains:
+- chain_id: runtime_loading_of_code__dynamically_loading_dex_elf_files_from_server_side
+  name: Dynamically loading dex/elf files from server side
+  strength: strong
+  points: 8
+  score_mode: all_or_nothing
+- chain_id: runtime_loading_of_code__run_classloaders_from_elf_files
+  name: Run Classloaders from elf files
+  strength: medium
+  points: 4
+  score_mode: all_or_nothing
+- chain_id: runtime_loading_of_code__cocos_update_hotupdate_reload_external_javascript_fi
+  name: Cocos update (hotupdate). Reload external Javascript files
+  strength: weak
+  points: 2
+  score_mode: all_or_nothing
+- chain_id: runtime_loading_of_code__unity_update_downloads_bundle_files_from_server_side
+  name: Unity update, Downloads bundle files from server side to update functionality
+  strength: weak
+  points: 2
+  score_mode: all_or_nothing
+- chain_id: runtime_loading_of_code__decryption_and_execution_of_an_existing_file_in_asse
+  name: Decryption and execution of an existing file in assets
+  strength: medium
+  points: 4
+  score_mode: all_or_nothing

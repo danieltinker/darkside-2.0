@@ -83,7 +83,7 @@ describe("behavioral blueprints", () => {
 describe("blueprint ↔ chain relations", () => {
   it("each owned blueprint points at a real chain in its rubric", () => {
     for (const id of ["onConversionDataSucces", "httpResponseWebView",
-      "conditionalStaticSignals", "privacyPolicyRedirection"]) {
+      "conditionalStaticSignals", "privacyPolicyRedirection", "dynamicDexDecryption"]) {
       const bp = loadBlueprint(id);
       expect(bp.rubric_id).toBeTruthy();
       expect(bp.chain_id).toBeTruthy();
