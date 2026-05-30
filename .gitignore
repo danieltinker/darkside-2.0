@@ -13,3 +13,17 @@ next-env.d.ts
 
 # Runtime PixelBridge mailboxes (per-machine on-disk state, not source)
 /bridge/
+
+# ── PRIVATE business-logic source — NEVER commit ──────────────────────
+# The riskware rubric/chain spreadsheets + zips are the secret single source
+# of truth. Only the PROCESSED gem artifacts we generate (gems/**/*.yaml) are
+# public. Keep the raw sources + any unzipped libs out of git entirely.
+*.xlsx
+*.xls
+~$*
+riskware_chains.zip
+riskware_rubrics*.xlsx
+riskware_agent_prompt.md
+/.private/
+/_private/
+**/riskware_chains/
