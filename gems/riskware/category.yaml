@@ -21,4 +21,7 @@ rubrics:
   - rubric_id: runtime_loading_of_code                 # 5 signal chains; homes the dynamicDexDecryption blueprint
     status: active
     skywalker_gem: gems/riskware/skywalker.gem.md
+  - rubric_id: device_info_cloaking                    # 9 signal chains (anti-analysis: root/emulator/adb/hardware)
+    status: active
+    skywalker_gem: gems/riskware/skywalker.gem.md
 learning_policy: { canonical_gems_mutable_by_agent: false, human_approval_required_for_promotion: true, auto_promote: false }

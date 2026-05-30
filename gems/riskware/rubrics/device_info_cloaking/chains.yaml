@@ -1,0 +1,50 @@
+# GENERATED from the private riskware source-of-truth spreadsheet.
+# Do not hand-edit; regenerate from source. Source stays out of git.
+rubric_id: device_info_cloaking
+chains_version: 0.1.0
+chains:
+- chain_id: device_info_cloaking__battery_percentage
+  name: Battery percentage
+  strength: medium
+  points: 4
+  score_mode: all_or_nothing
+- chain_id: device_info_cloaking__root_detection
+  name: Root Detection
+  strength: weak
+  points: 2
+  score_mode: all_or_nothing
+- chain_id: device_info_cloaking__emulator_detection
+  name: Emulator Detection
+  strength: weak
+  points: 2
+  score_mode: all_or_nothing
+- chain_id: device_info_cloaking__touch_count
+  name: Touch count
+  strength: weak
+  points: 2
+  score_mode: all_or_nothing
+- chain_id: device_info_cloaking__motion_detection
+  name: Motion detection
+  strength: medium
+  points: 4
+  score_mode: all_or_nothing
+- chain_id: device_info_cloaking__development_settings_enabled_check
+  name: development_settings_enabled check
+  strength: weak
+  points: 2
+  score_mode: all_or_nothing
+- chain_id: device_info_cloaking__requiring_packages_to_be_installed_or_not_installed
+  name: Requiring packages to be installed or not installed
+  strength: medium
+  points: 4
+  score_mode: all_or_nothing
+- chain_id: device_info_cloaking__android_hardware_info_fingerprint_model_manufacturer
+  name: Android hardware info (fingerprint, model, manufacturer, ro.build.id, etc.)
+  strength: medium
+  points: 4
+  score_mode: all_or_nothing
+- chain_id: device_info_cloaking__adb_enabled_detection
+  name: adb_enabled detection
+  strength: weak
+  points: 2
+  score_mode: all_or_nothing
