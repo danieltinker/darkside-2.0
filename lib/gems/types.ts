@@ -17,6 +17,42 @@ export const ChainSchema = z.object({
 });
 export type Chain = z.infer<typeof ChainSchema>;
 
+// ---- Behavioral blueprint graph (processed from the private chains .dot files) ----
+// Rubric/chain-level, role-only: NO per-app code signature (that lives on a per-case
+// TRACED graph). Adds the gate/branch/assessment/verdict kinds the blueprints use.
+export const BLUEPRINT_KINDS = [
+  "trigger", "dispatch", "http", "parse", "deobf", "sink",
+  "condition", "benign_branch", "assessment", "verdict",
+] as const;
+
+export const BlueprintNodeSchema = z.object({
+  node_id: z.string(),
+  label: z.string(),
+  phase: z.string(), // the cluster/stage label, verbatim from the source graph
+  kind: z.enum(BLUEPRINT_KINDS),
+  boundary: z.string().nullable().optional(),
+  behavioral_role: z.string().optional(),
+});
+export type BlueprintNode = z.infer<typeof BlueprintNodeSchema>;
+
+export const BlueprintEdgeSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  label: z.string().optional(), // branch condition (e.g. "af_status == Non-organic")
+});
+
+export const BlueprintGraphSchema = z.object({
+  blueprint_id: z.string(),
+  title: z.string(),
+  schema_version: z.string(),
+  rubric_id: z.string().nullable().optional(), // which rubric/chain this blueprint details
+  chain_id: z.string().nullable().optional(),
+  entry: z.string(),
+  nodes: z.array(BlueprintNodeSchema),
+  edges: z.array(BlueprintEdgeSchema),
+});
+export type BlueprintGraph = z.infer<typeof BlueprintGraphSchema>;
+
 export const FlexibleMatchSchema = z.object({
   examples: z.array(z.string()),
   match_type: z.string(),

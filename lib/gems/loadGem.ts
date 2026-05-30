@@ -6,8 +6,10 @@ import {
   GraphGemSchema,
   ChainsFileSchema,
   CategorySchema,
+  BlueprintGraphSchema,
   type GraphGem,
   type Category,
+  type BlueprintGraph,
 } from "./types";
 
 const ROOT = process.cwd();
@@ -30,5 +32,12 @@ export function loadChains(rubricId: string) {
 export function loadCategory(categoryId: string): Category {
   const raw = readYaml(`${categoryId}/category.yaml`);
   return CategorySchema.parse(raw);
+}
+
+// A behavioral blueprint graph (role-level, signature-free) processed from the
+// private chains .dot files into gems/riskware/blueprints/<id>.graph.yaml.
+export function loadBlueprint(blueprintId: string): BlueprintGraph {
+  const raw = readYaml(`riskware/blueprints/${blueprintId}.graph.yaml`);
+  return BlueprintGraphSchema.parse(raw);
 }
 

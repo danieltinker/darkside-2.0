@@ -1,0 +1,96 @@
+# GENERATED from the private riskware chains blueprints (.dot).
+# Behavioral blueprint: role-level, NO per-app signatures. Source stays out of git.
+blueprint_id: conditionalStaticSignals
+title: 'Execution Flow Trace: Conditional Uncloaking via Static Evasion Signals'
+schema_version: 1.0.0
+rubric_id: arbitrary_obfuscated_url_loading
+chain_id: arbitrary_obfuscated_url_loading__static_app_loads_url_conditionally_according_to_anot
+entry: N1
+nodes:
+- node_id: N1
+  label: 'Node 1: App Launch (onCreate)'
+  phase: 1. Lifecycle Setup & Telemetry Query
+  kind: trigger
+- node_id: N2
+  label: 'Node 2: Query Build Properties (Build.MODEL)'
+  phase: 1. Lifecycle Setup & Telemetry Query
+  kind: dispatch
+- node_id: N3
+  label: 'Node 3: Fetch Sensor & Telemetry Data (SensorManager)'
+  phase: 1. Lifecycle Setup & Telemetry Query
+  kind: dispatch
+- node_id: N4
+  label: 'Node 4: Check Installed Packages (Scan for dynamic analyzers)'
+  phase: 2. Environmental Integrity Assessment
+  kind: assessment
+- node_id: N5
+  label: 'Node 5: Evaluate Hardware Signatures (Identify emulator markers)'
+  phase: 2. Environmental Integrity Assessment
+  kind: dispatch
+- node_id: N6
+  label: 'Node 6: Gate Evaluator (All checks clean?)'
+  phase: 3. Conditional Gate Decision
+  kind: condition
+- node_id: N7a
+  label: 'Node 7a: Cloak State (Run benign local game)'
+  phase: 3. Conditional Gate Decision
+  kind: benign_branch
+- node_id: N7b
+  label: 'Node 7b: Uncloak Flow Trigger'
+  phase: 3. Conditional Gate Decision
+  kind: dispatch
+- node_id: N8
+  label: 'Node 8: Mount Full-Screen WebContainer'
+  phase: 4. WebView Exploitation
+  kind: dispatch
+- node_id: N9
+  label: 'Node 9: Synthesize Target URL (Build URI)'
+  phase: 4. WebView Exploitation
+  kind: dispatch
+- node_id: N10
+  label: 'Node 10: Render Evasion Content (webView.loadUrl)'
+  phase: 4. WebView Exploitation
+  kind: sink
+- node_id: N11
+  label: 'Node 11: AST Traversal (Regex detects Build.MODEL check)'
+  phase: 5. Automated Rubric Assessment
+  kind: assessment
+- node_id: N12
+  label: 'Node 12: Jurassic Telemetry Simulation (Real profile inject)'
+  phase: 5. Automated Rubric Assessment
+  kind: assessment
+- node_id: N13
+  label: 'Node 13: Final Evasion Mark (Loads URL conditionally via static signals +8)'
+  phase: 5. Automated Rubric Assessment
+  kind: verdict
+edges:
+- from: N1
+  to: N2
+- from: N2
+  to: N3
+- from: N4
+  to: N5
+- from: N6
+  to: N7a
+  label: Simulator Detected
+- from: N6
+  to: N7b
+  label: Real Device Verified
+- from: N8
+  to: N9
+- from: N9
+  to: N10
+- from: N11
+  to: N13
+- from: N12
+  to: N13
+- from: N3
+  to: N4
+- from: N5
+  to: N6
+- from: N7b
+  to: N8
+- from: N10
+  to: N11
+- from: N10
+  to: N12

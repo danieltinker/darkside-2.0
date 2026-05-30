@@ -1,0 +1,98 @@
+# GENERATED from the private riskware chains blueprints (.dot).
+# Behavioral blueprint: role-level, NO per-app signatures. Source stays out of git.
+blueprint_id: dynamicDexDecryption
+title: 'Execution Flow Trace: Dynamic Dex Decryption and Loading'
+schema_version: 1.0.0
+rubric_id: runtime_loading_of_code
+chain_id: null
+entry: N1
+nodes:
+- node_id: N1
+  label: 'Node 1: App Launch (onCreate)'
+  phase: 1. Lifecycle Setup & Resource Discovery
+  kind: trigger
+- node_id: N2
+  label: 'Node 2: Locate Encrypted Asset (assets/logo.png)'
+  phase: 1. Lifecycle Setup & Resource Discovery
+  kind: dispatch
+- node_id: N3
+  label: 'Node 3: Read Asset Binary Stream'
+  phase: 1. Lifecycle Setup & Resource Discovery
+  kind: parse
+- node_id: N4
+  label: 'Node 4: Retrieve Cipher Key (AES / XOR)'
+  phase: 2. Decryption and Reconstitution
+  kind: deobf
+- node_id: N5
+  label: 'Node 5: Stream Decryption (AES / XOR)'
+  phase: 2. Decryption and Reconstitution
+  kind: deobf
+- node_id: N6
+  label: 'Node 6: Execution Type Fork'
+  phase: 3. Dynamic Execution & Loading
+  kind: condition
+- node_id: N7a
+  label: 'Node 7a: Write Temp Dex (data/data/pkg/cache/temp.dex)'
+  phase: 3. Dynamic Execution & Loading
+  kind: benign_branch
+- node_id: N7b
+  label: 'Node 7b: Dynamic ClassLoader (InMemoryDex / Native ELF)'
+  phase: 3. Dynamic Execution & Loading
+  kind: dispatch
+- node_id: N8
+  label: 'Node 8: Custom ClassLoader Instantiation (DexClassLoader)'
+  phase: 3. Dynamic Execution & Loading
+  kind: dispatch
+- node_id: N9
+  label: 'Node 9: Reflective Class/Method Invocation (Class.forName)'
+  phase: 3. Dynamic Execution & Loading
+  kind: dispatch
+- node_id: N10
+  label: 'Node 10: Malicious Payload Execution (Uncloaked Evasion Stage)'
+  phase: 4. Payload Execution
+  kind: sink
+- node_id: N11
+  label: 'Node 11: AST Regex Scan (RegexScanTask detects DexClassLoader)'
+  phase: 5. Automated Rubric Assessment
+  kind: assessment
+- node_id: N12
+  label: 'Node 12: ELF Static Checks (DangerousElfTask native detection)'
+  phase: 5. Automated Rubric Assessment
+  kind: assessment
+- node_id: N13
+  label: 'Node 13: Final Evasion Mark (Decryption of assets / Run Classloaders +8)'
+  phase: 5. Automated Rubric Assessment
+  kind: verdict
+edges:
+- from: N1
+  to: N2
+- from: N2
+  to: N3
+- from: N4
+  to: N5
+- from: N6
+  to: N7a
+  label: Load from Disk
+- from: N6
+  to: N7b
+  label: Load in Memory (Native)
+- from: N7a
+  to: N8
+- from: N7b
+  to: N8
+- from: N8
+  to: N9
+- from: N11
+  to: N13
+- from: N12
+  to: N13
+- from: N3
+  to: N4
+- from: N5
+  to: N6
+- from: N9
+  to: N10
+- from: N10
+  to: N11
+- from: N10
+  to: N12

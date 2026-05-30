@@ -1,0 +1,96 @@
+# GENERATED from the private riskware chains blueprints (.dot).
+# Behavioral blueprint: role-level, NO per-app signatures. Source stays out of git.
+blueprint_id: onConversionDataSucces
+title: 'Execution Flow Trace: onConversionDataSuccess -> Load Affiliate URL in WebView'
+schema_version: 1.0.0
+rubric_id: attribution_gated_webview_uncloaking
+chain_id: attribution_gated_webview_uncloaking_strong_8
+entry: N1
+nodes:
+- node_id: N1
+  label: 'Node 1: App Launch (onCreate)'
+  phase: 1. Lifecycle Trigger and MMP SDK Setup
+  kind: trigger
+- node_id: N2
+  label: 'Node 2: Initialize MMP SDK (AppsFlyer / Adjust)'
+  phase: 1. Lifecycle Trigger and MMP SDK Setup
+  kind: dispatch
+- node_id: N3
+  label: 'Node 3: Register Attribution Listener (ConversionListener)'
+  phase: 1. Lifecycle Trigger and MMP SDK Setup
+  kind: dispatch
+- node_id: N4
+  label: 'Node 4: Callback Trigger (onConversionDataSuccess)'
+  phase: 2. Conversion Payload Extraction
+  kind: trigger
+- node_id: N5
+  label: 'Node 5: Value Unpacking (Extract af_status, campaign, url)'
+  phase: 2. Conversion Payload Extraction
+  kind: parse
+- node_id: N6
+  label: 'Node 6: Cloak Conditional (Is status Organic?)'
+  phase: 3. Dynamic Cloaking Gateway
+  kind: condition
+- node_id: N7a
+  label: 'Node 7a: Base State (Load benign UI)'
+  phase: 3. Dynamic Cloaking Gateway
+  kind: benign_branch
+- node_id: N7b
+  label: 'Node 7b: Dynamic URL Synthesis (Build URI)'
+  phase: 3. Dynamic Cloaking Gateway
+  kind: dispatch
+- node_id: N8
+  label: 'Node 8: Network Negotiation (302 Target Redirect)'
+  phase: 4. Target URL Resolution
+  kind: http
+- node_id: N9
+  label: 'Node 9: Container Prep (setJavaScriptEnabled)'
+  phase: 5. WebView Exploitation
+  kind: dispatch
+- node_id: N10
+  label: 'Node 10: Payload Execution (webView.loadUrl)'
+  phase: 5. WebView Exploitation
+  kind: sink
+- node_id: N11
+  label: 'Node 11: AST Verification (Regex detects listener bridge)'
+  phase: 6. Automated Rubric Assessment
+  kind: assessment
+- node_id: N12
+  label: 'Node 12: Dynamic Validation (Jurassic attribution mock)'
+  phase: 6. Automated Rubric Assessment
+  kind: assessment
+- node_id: N13
+  label: 'Node 13: Final Mark (Rubric Applied: App loads affiliate link in Webview)'
+  phase: 6. Automated Rubric Assessment
+  kind: verdict
+edges:
+- from: N1
+  to: N2
+- from: N2
+  to: N3
+- from: N4
+  to: N5
+- from: N6
+  to: N7a
+  label: af_status == Organic
+- from: N6
+  to: N7b
+  label: af_status == Non-organic
+- from: N9
+  to: N10
+- from: N11
+  to: N13
+- from: N12
+  to: N13
+- from: N3
+  to: N4
+- from: N5
+  to: N6
+- from: N7b
+  to: N8
+- from: N8
+  to: N9
+- from: N10
+  to: N11
+- from: N10
+  to: N12

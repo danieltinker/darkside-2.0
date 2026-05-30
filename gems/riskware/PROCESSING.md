@@ -26,20 +26,27 @@ the **processed gem artifacts** (the `*.yaml` in this tree) are public.
 Every chain's `strength→points` is asserted in `lib/gems/__tests__/loadGem.test.ts`.
 
 ## Architecture adjustments
-- **Done:** `Chain` is a weighted signal — `strength` adds `non_signal`, `points`
-  adds `0`, and `required_boundaries`/`required_nodes` are optional (signal-level
-  chains have no graph). See `lib/gems/types.ts`.
-- **Next (TODO):** the private chains zip contains **5 real behavioral blueprints**
+- **Done — chain = weighted signal:** `strength` adds `non_signal`, `points` adds
+  `0`, `required_boundaries`/`required_nodes` optional. See `lib/gems/types.ts`.
+- **Done — behavioral blueprints:** the private chains zip's **5 `.dot` graphs** are
+  processed into public `gems/riskware/blueprints/*.graph.yaml`
   (`onConversionDataSucces`, `httpResponseWebView`, `conditionalStaticSignals`,
-  `dynamicDexDecryption`, `privacyPolicyRedirection`) as `.md` + `.dot` + `.png`.
-  These are **role-level blueprints with NO per-app code signatures**, so to import
-  them we need a **blueprint-graph** notion: make `GemNode.signature` optional
-  (blueprint nodes carry `behavioral_role`/`phase`/`boundary`/`flexible_match`; a
-  per-case *traced* graph fills the concrete signatures at analysis time).
-- **Reconcile (TODO):** our 9-node `attribution_gated_webview_uncloaking` graph vs
-  the source's **13-node** MMP blueprint (which has an explicit cloaking-gate node,
-  benign/evasion branches, and AST/dynamic assessment nodes). Converge on the 13-node
-  blueprint, then attach per-case signatures.
+  `dynamicDexDecryption`, `privacyPolicyRedirection`). A blueprint is **role-level,
+  signature-free** (`BlueprintGraphSchema` in `lib/gems/types.ts`): node kinds add
+  `condition` / `benign_branch` / `assessment` / `verdict`; edges carry branch
+  conditions (e.g. `af_status == Non-organic`); each blueprint declares its owning
+  `rubric_id`/`chain_id`. Loaded via `loadBlueprint(id)`; faithfulness +
+  blueprint→chain relations asserted in `lib/gems/__tests__/loadGem.test.ts`.
+  `dynamicDexDecryption` awaits its `runtime_loading_of_code` rubric (chain_id null).
+- **Reconcile (TODO):** the MMP blueprint (`onConversionDataSucces`) is the canonical
+  **14-node** graph (N1..N13 with N7 split into benign 7a / evasion 7b; explicit
+  cloak-gate N6, AST/dynamic assessment, verdict). Our live demo still uses the
+  leaner **9-node traced** graph (`rubrics/attribution_gated_webview_uncloaking/
+  graph.yaml`, with per-app signatures). Converge the traced graph onto the 14-node
+  blueprint, then re-attach signatures. The blueprint is the rubric-level truth; the
+  traced graph is one per-case instantiation.
+- **Render (later):** blueprints have no UI surface yet — the deferred Rubric Library
+  tab will render them (reuse the graph view; show role/phase/branch, no code).
 
 Regenerate processed rubrics from the (private) source with the processor; never
 commit the source.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { loadGraphGem, loadChains, loadCategory } from "@/lib/gems/loadGem";
+import { loadGraphGem, loadChains, loadCategory, loadBlueprint } from "@/lib/gems/loadGem";
 
 const RUBRIC = "attribution_gated_webview_uncloaking";
 
@@ -44,5 +44,51 @@ describe("processed signal-level rubrics", () => {
     }
     // the Firebase strong signal is present
     expect(c.chains.some((x) => /firebase/i.test(x.name) && x.points === 8)).toBe(true);
+  });
+});
+
+// Behavioral blueprints converted from the private chains .dot files.
+describe("behavioral blueprints", () => {
+  const ALL = [
+    "onConversionDataSucces", "httpResponseWebView", "conditionalStaticSignals",
+    "dynamicDexDecryption", "privacyPolicyRedirection",
+  ];
+
+  it("every blueprint loads, validates, and has a conditional gate", () => {
+    for (const id of ALL) {
+      const g = loadBlueprint(id);
+      expect(g.nodes.length).toBeGreaterThanOrEqual(10);
+      expect(g.nodes.some((n) => n.kind === "condition")).toBe(true); // the cloak gate
+    }
+  });
+
+  it("MMP blueprint is the faithful 14-node graph with the cloak branches", () => {
+    const g = loadBlueprint("onConversionDataSucces");
+    expect(g.entry).toBe("N1");
+    expect(g.nodes).toHaveLength(14); // N1..N13 with N7 split into 7a/7b
+    expect(g.nodes.find((n) => n.node_id === "N6")!.kind).toBe("condition");
+    expect(g.nodes.find((n) => n.node_id === "N7a")!.kind).toBe("benign_branch");
+    expect(g.nodes.find((n) => n.node_id === "N10")!.kind).toBe("sink");
+    expect(g.nodes.find((n) => n.node_id === "N13")!.kind).toBe("verdict");
+    // the two acquisition→gate branch edges are preserved with their conditions
+    const branches = g.edges.filter((e) => e.from === "N6").map((e) => e.label);
+    expect(branches).toContain("af_status == Organic");
+    expect(branches).toContain("af_status == Non-organic");
+    // six distinct phase bands from the source clusters
+    expect(new Set(g.nodes.map((n) => n.phase)).size).toBe(6);
+  });
+});
+
+// The blueprint→chain relation must resolve to a real chain in the named rubric.
+describe("blueprint ↔ chain relations", () => {
+  it("each owned blueprint points at a real chain in its rubric", () => {
+    for (const id of ["onConversionDataSucces", "httpResponseWebView",
+      "conditionalStaticSignals", "privacyPolicyRedirection"]) {
+      const bp = loadBlueprint(id);
+      expect(bp.rubric_id).toBeTruthy();
+      expect(bp.chain_id).toBeTruthy();
+      const chainIds = loadChains(bp.rubric_id!).chains.map((c) => c.chain_id);
+      expect(chainIds).toContain(bp.chain_id);
+    }
   });
 });
