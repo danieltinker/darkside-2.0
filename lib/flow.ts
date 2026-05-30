@@ -1,28 +1,105 @@
 import type { FlowGraph } from "./contract";
 
 // =====================================================================
-// The one IOC: mmp_cloaking (strong = 8).
+// The traced MMP-cloaking graph for the golden case (com.coinflip.rewards).
 //
-// The true affiliate URL never appears in static strings. It is built at
-// runtime from a tracker response (HTTP → parse → base64+XOR deobfuscate)
-// and loaded into a WebView through obfuscated indirection (coroutine →
-// native libcloak.so → loadUrl). This graph is what Yoda authors and
-// embeds in the MissionContext; static_confirmed flags are set (Yoda
-// located every node). native_file.confirmed_active stays false here —
-// only Vader can flip it at runtime.
+// This is the per-case INSTANTIATION of the canonical behavioral blueprint
+// `gems/riskware/blueprints/onConversionDataSucces.graph.yaml`: lifecycle +
+// MMP setup → conversion callback → field extraction → CLOAK GATE (Organic →
+// benign decoy / Non-organic → uncloak) → runtime URL synthesis → remote
+// resolution → WebView render. Unlike the blueprint (role-only), the traced
+// graph carries per-app decompiled signatures. The blueprint's assessment /
+// verdict nodes (N11–13) are realized by the reconcile scoring footer.
+//
+// required_nodes are the 4 scoring boundaries; all must be dynamically
+// confirmed for the strong-8.
 // =====================================================================
 
-// The cleartext the deobf node recovers — also the runtime found_url.
+// The cleartext the synthesis node recovers — also the runtime found_url.
 export const AFFILIATE_URL =
   "https://go.offerwall-aff.net/r?o=8821&aff=adtrack&sub=mmp";
 
 export const mmpCloakingGraph: FlowGraph = {
-  entry: "n1_callback",
-  required_nodes: ["n1_callback", "n2_parse", "n3_load"],
+  entry: "n1_launch",
+  required_nodes: ["n4_callback", "n6_gate", "n8_resolve", "n10_load"],
   nodes: [
-    // ---- Stage 1 · Trigger ----------------------------------------
+    // ---- Phase 1 · Lifecycle & MMP SDK setup ----------------------
     {
-      node_id: "n1_callback",
+      node_id: "n1_launch",
+      phase: "lifecycle",
+      boundary: null,
+      behavioral_role: "lifecycle_entry",
+      stage: 1,
+      label: "Application.onCreate",
+      kind: "trigger",
+      static_confirmed: true,
+      frida_hook: "com.coinflip.rewards.AdsApplication.onCreate",
+      signature: {
+        class_name: "com.coinflip.rewards.AdsApplication",
+        method: "onCreate()",
+        file_path: "sources/com/coinflip/rewards/AdsApplication.java",
+        line: 31,
+        snippet:
+          "public void onCreate() {\n" +
+          "    super.onCreate();\n" +
+          "    Tracker.boot(this);      // sets up MMP + attribution\n" +
+          "}",
+      },
+    },
+    {
+      node_id: "n2_sdk_init",
+      phase: "lifecycle",
+      boundary: null,
+      behavioral_role: "attribution_sdk_initialization",
+      stage: 1,
+      label: "AppsFlyerLib.init",
+      kind: "dispatch",
+      static_confirmed: true,
+      frida_hook: "com.appsflyer.AppsFlyerLib.init",
+      flexible_match: {
+        examples: ["AppsFlyerLib.getInstance().init", "Adjust.onCreate", "Branch.getAutoInstance"],
+        match_type: "semantic_or_api_family",
+      },
+      signature: {
+        class_name: "com.adtrack.core.Tracker",
+        method: "boot(android.content.Context)",
+        file_path: "sources/com/adtrack/core/Tracker.java",
+        line: 18,
+        snippet:
+          "static void boot(Context c) {\n" +
+          '    AppsFlyerLib.getInstance().init("aF_dev_key", listener, c);\n' +
+          "    AppsFlyerLib.getInstance().start(c);\n" +
+          "}",
+      },
+    },
+    {
+      node_id: "n3_listener",
+      phase: "lifecycle",
+      boundary: null,
+      behavioral_role: "listener_registration",
+      stage: 1,
+      label: "register AttribListener",
+      kind: "dispatch",
+      static_confirmed: true,
+      frida_hook: "com.adtrack.core.Tracker.<clinit>",
+      flexible_match: {
+        examples: ["AppsFlyerConversionListener", "AdjustAttributionCallback", "BranchReferralInitListener"],
+        match_type: "semantic_or_api_family",
+      },
+      signature: {
+        class_name: "com.adtrack.core.Tracker",
+        method: "listener: AppsFlyerConversionListener",
+        file_path: "sources/com/adtrack/core/Tracker.java",
+        line: 11,
+        snippet:
+          "static final AppsFlyerConversionListener listener =\n" +
+          "    new com.adtrack.attr.AttribListener();   // async attribution sink",
+      },
+    },
+
+    // ---- Phase 2 · Conversion payload extraction ------------------
+    {
+      node_id: "n4_callback",
       phase: "acquisition",
       boundary: "acquisition_signal",
       behavioral_role: "attribution_payload_entry",
@@ -31,6 +108,10 @@ export const mmpCloakingGraph: FlowGraph = {
       kind: "trigger",
       static_confirmed: true,
       frida_hook: "com.adtrack.attr.AttribListener.onConversionDataSuccess",
+      flexible_match: {
+        examples: ["onConversionDataSuccess", "onAttributionChanged", "onInstallReferrerSetupFinished"],
+        match_type: "semantic_or_api_family",
+      },
       signature: {
         class_name: "com.adtrack.attr.AttribListener",
         method: "onConversionDataSuccess(java.util.Map)",
@@ -38,23 +119,24 @@ export const mmpCloakingGraph: FlowGraph = {
         line: 42,
         snippet:
           "public void onConversionDataSuccess(Map<String, Object> data) {\n" +
-          '    String tok = String.valueOf(data.get("af_adset"));\n' +
-          "    a.invoke(data);          // hand off to URL builder\n" +
+          "    a.invoke(data);          // hand attribution map to the gate\n" +
           "}",
       },
     },
-
-    // ---- Stage 2 · URL build --------------------------------------
     {
-      node_id: "n2_invoke",
-      phase: "url_build",
+      node_id: "n5_unpack",
+      phase: "acquisition",
       boundary: null,
-      behavioral_role: "runtime_url_builder",
-      stage: 2,
-      label: "a.invoke(data)",
-      kind: "dispatch",
+      behavioral_role: "attribution_field_extraction",
+      stage: 1,
+      label: 'extract af_status / af_adset',
+      kind: "parse",
       static_confirmed: true,
       frida_hook: "com.adtrack.core.a.invoke",
+      flexible_match: {
+        examples: ["af_status", "media_source", "campaign", "referrer", "deep_link_value"],
+        match_type: "fuzzy_key_and_dataflow",
+      },
       signature: {
         class_name: "com.adtrack.core.a",
         method: "invoke(java.util.Map)",
@@ -62,59 +144,69 @@ export const mmpCloakingGraph: FlowGraph = {
         line: 18,
         snippet:
           "final void invoke(Map data) {\n" +
-          '    String r  = g(String.valueOf(data.get("af_adset")));\n' +
-          '    String dl = new JSONObject(r).optString("dl");\n' +
-          "    String url = B64.dec(dl);   // deobfuscate → cleartext\n" +
-          "    MainActivity.o(url);        // hand to sink\n" +
+          '    String st  = String.valueOf(data.get("af_status"));\n' +
+          '    String tok = String.valueOf(data.get("af_adset"));\n' +
+          "    gate(st, tok);\n" +
           "}",
       },
     },
+
+    // ---- Phase 3 · Cloaking gateway (the gate + branches) ---------
     {
-      node_id: "n2_http",
-      phase: "url_build",
-      boundary: null,
-      behavioral_role: "remote_destination_resolution",
+      node_id: "n6_gate",
+      phase: "cloaking_gate",
+      boundary: "cloaking_gate",
+      behavioral_role: "environment_or_acquisition_gate",
       stage: 2,
-      label: "a.g(token) — tracker GET",
-      kind: "http",
+      label: "if af_status == Non-organic",
+      kind: "condition",
       static_confirmed: true,
-      frida_hook: "com.adtrack.core.a.g",
+      frida_hook: "com.adtrack.core.a.gate",
+      flexible_match: {
+        examples: ["Non-organic", "Organic", "campaign match", "media_source", "targeted_geo"],
+        match_type: "semantic_condition",
+      },
       signature: {
         class_name: "com.adtrack.core.a",
-        method: "g(java.lang.String)",
+        method: "gate(java.lang.String,java.lang.String)",
         file_path: "sources/com/adtrack/core/a.java",
-        line: 33,
+        line: 27,
         snippet:
-          "String g(String t) {\n" +
-          "    Request rq = new Request.Builder()\n" +
-          '        .url("https://t.adtrack-cdn.com/c?ref=" + t).build();\n' +
-          "    return client.newCall(rq).execute().body().string();\n" +
+          "void gate(String status, String tok) {\n" +
+          '    if ("Non-organic".equals(status)) {\n' +
+          "        MainActivity.o(B64.dec(g(tok)));   // uncloak\n" +
+          "    } else {\n" +
+          "        MainActivity.benign();             // decoy\n" +
+          "    }\n" +
           "}",
       },
     },
     {
-      node_id: "n2_parse",
-      phase: "url_build",
-      boundary: "destination_resolution",
-      behavioral_role: "attribution_field_extraction",
+      node_id: "n7a_benign",
+      phase: "cloaking_gate",
+      boundary: null,
+      behavioral_role: "decoy_or_normal_ui",
       stage: 2,
-      label: 'JSONObject.optString("dl")',
-      kind: "parse",
+      label: "benign arcade UI",
+      kind: "benign_branch",
       static_confirmed: true,
-      frida_hook: "org.json.JSONObject.optString",
+      frida_hook: "com.app.MainActivity.benign",
       signature: {
-        class_name: "org.json.JSONObject",
-        method: "optString(java.lang.String)",
-        file_path: "sources/com/adtrack/core/a.java",
-        line: 20,
+        class_name: "com.app.MainActivity",
+        method: "benign()",
+        file_path: "sources/com/app/MainActivity.java",
+        line: 188,
         snippet:
-          'String dl = new JSONObject(r).optString("dl");\n' +
-          '// dl = "S0NmW1tdQ0pYW0..." (base64, XOR-wrapped — not the URL yet)',
+          "void benign() {\n" +
+          "    setContentView(R.layout.activity_game);   // Organic → decoy game\n" +
+          "}",
       },
     },
+
+    // ---- Phase 4 · Target URL resolution --------------------------
     {
-      node_id: "n2_deobf",
-      phase: "url_build",
+      node_id: "n7b_synth",
+      phase: "url_resolution",
       boundary: null,
       behavioral_role: "runtime_url_builder",
       stage: 2,
@@ -152,18 +244,50 @@ export const mmpCloakingGraph: FlowGraph = {
         ],
       },
     },
-
-    // ---- Stage 3 · Sink -------------------------------------------
     {
-      node_id: "n3_o",
-      phase: "sink",
+      node_id: "n8_resolve",
+      phase: "url_resolution",
+      boundary: "destination_resolution",
+      behavioral_role: "remote_destination_resolution",
+      stage: 2,
+      label: "a.g(token) — tracker GET → dl",
+      kind: "http",
+      static_confirmed: true,
+      frida_hook: "com.adtrack.core.a.g",
+      flexible_match: {
+        examples: ["HTTP 302 Location", "JSON url field", "remote config", "OkHttp", "Retrofit"],
+        match_type: "semantic_or_api_family",
+      },
+      signature: {
+        class_name: "com.adtrack.core.a",
+        method: "g(java.lang.String)",
+        file_path: "sources/com/adtrack/core/a.java",
+        line: 33,
+        snippet:
+          "String g(String t) {\n" +
+          '    Request rq = new Request.Builder()\n' +
+          '        .url("https://t.adtrack-cdn.com/c?ref=" + t).build();\n' +
+          '    String r = client.newCall(rq).execute().body().string();\n' +
+          '    return new JSONObject(r).optString("dl");   // base64+XOR blob\n' +
+          "}",
+      },
+    },
+
+    // ---- Phase 5 · WebView render ---------------------------------
+    {
+      node_id: "n9_container",
+      phase: "render",
       boundary: null,
       behavioral_role: "browser_container_setup",
       stage: 3,
-      label: "MainActivity.o(url)",
+      label: "setJavaScriptEnabled(true)",
       kind: "dispatch",
       static_confirmed: true,
-      frida_hook: "com.app.MainActivity.o",
+      frida_hook: "android.webkit.WebSettings.setJavaScriptEnabled",
+      flexible_match: {
+        examples: ["setJavaScriptEnabled", "setDomStorageEnabled", "addJavascriptInterface", "WebViewClient"],
+        match_type: "semantic_or_api_family",
+      },
       signature: {
         class_name: "com.app.MainActivity",
         method: "o(java.lang.String)",
@@ -171,66 +295,14 @@ export const mmpCloakingGraph: FlowGraph = {
         line: 210,
         snippet:
           "public final void o(String url) {\n" +
-          "    new Cloak(this).c(url);    // launch cloak coroutine\n" +
+          "    webView.getSettings().setJavaScriptEnabled(true);\n" +
+          "    webView.loadUrl(url);   // hand to sink\n" +
           "}",
       },
     },
     {
-      node_id: "n3_coro",
-      phase: "sink",
-      boundary: null,
-      behavioral_role: "dispatch_indirection",
-      stage: 3,
-      label: "Cloak$block$1.invokeSuspend",
-      kind: "dispatch",
-      static_confirmed: true,
-      frida_hook: "com.app.Cloak$c$1.invokeSuspend",
-      signature: {
-        class_name: "com.app.Cloak$c$1",
-        method: "invokeSuspend(java.lang.Object)",
-        file_path: "sources/com/app/Cloak$c$1.java",
-        line: 27,
-        snippet:
-          "public final Object invokeSuspend(Object $result) {\n" +
-          "    // coroutine indirection hides the sink call site\n" +
-          "    Cloak.nativeDispatch(this.$url);   // → JNI\n" +
-          "    return Unit.INSTANCE;\n" +
-          "}",
-      },
-    },
-    {
-      node_id: "n3_native",
-      phase: "sink",
-      boundary: null,
-      behavioral_role: "native_dispatch",
-      stage: 3,
-      label: "libcloak.so JNI dispatch",
-      kind: "dispatch",
-      static_confirmed: true,
-      frida_hook: "com.app.Cloak.nativeDispatch",
-      signature: {
-        class_name: "com.app.Cloak",
-        method: "nativeDispatch(java.lang.String)",
-        file_path: "sources/com/app/Cloak.java",
-        line: 64,
-        snippet:
-          "private static native void nativeDispatch(String url);\n" +
-          "// resolves to Java_com_app_Cloak_nativeDispatch in libcloak.so\n" +
-          "// native code re-enters Java and calls render(url)",
-      },
-      native_file: {
-        native_id: "nf_libcloak_8821",
-        name: "libcloak.so",
-        sha256:
-          "9f2c1ab4e7d3056b8c41fa92de77b0c5a3e1488f6b2d90147ca5e0b3f8d62719",
-        exported_symbol: "Java_com_app_Cloak_nativeDispatch",
-        confirmed_active: false, // static only knows it exists; Vader proves it
-        activity_note: "native dispatch present in lib; runtime execution unproven",
-      },
-    },
-    {
-      node_id: "n3_load",
-      phase: "sink",
+      node_id: "n10_load",
+      phase: "render",
       boundary: "render",
       behavioral_role: "in_app_destination_render",
       stage: 3,
@@ -238,28 +310,30 @@ export const mmpCloakingGraph: FlowGraph = {
       kind: "sink",
       static_confirmed: true,
       frida_hook: "android.webkit.WebView.loadUrl",
+      flexible_match: {
+        examples: ["WebView.loadUrl", "WebView.postUrl", "evaluateJavascript", "CustomTabsIntent.launchUrl"],
+        match_type: "sink_family",
+      },
       signature: {
         class_name: "android.webkit.WebView",
         method: "loadUrl(java.lang.String)",
-        file_path: "sources/com/app/Cloak.java",
-        line: 88,
+        file_path: "sources/com/app/MainActivity.java",
+        line: 212,
         snippet:
-          "// native callback re-enters Java here:\n" +
-          "void render(String url) {\n" +
-          "    this.webView.loadUrl(url);   // the real sink\n" +
-          "}",
+          "webView.loadUrl(url);   // the real sink — renders the affiliate page",
       },
     },
   ],
   edges: [
-    { from: "n1_callback", to: "n2_invoke", relation: "calls" },
-    { from: "n2_invoke", to: "n2_http", relation: "calls" },
-    { from: "n2_http", to: "n2_parse", relation: "returns" },
-    { from: "n2_parse", to: "n2_deobf", relation: "data_to" },
-    { from: "n2_deobf", to: "n2_invoke", relation: "returns" },
-    { from: "n2_invoke", to: "n3_o", relation: "data_to" },
-    { from: "n3_o", to: "n3_coro", relation: "calls" },
-    { from: "n3_coro", to: "n3_native", relation: "calls" },
-    { from: "n3_native", to: "n3_load", relation: "triggers" },
+    { from: "n1_launch", to: "n2_sdk_init", relation: "initializes" },
+    { from: "n2_sdk_init", to: "n3_listener", relation: "registers" },
+    { from: "n3_listener", to: "n4_callback", relation: "async_triggers" },
+    { from: "n4_callback", to: "n5_unpack", relation: "data_to" },
+    { from: "n5_unpack", to: "n6_gate", relation: "data_to" },
+    { from: "n6_gate", to: "n7a_benign", relation: "branch_benign", label: "af_status == Organic" },
+    { from: "n6_gate", to: "n7b_synth", relation: "branch_uncloaked", label: "af_status == Non-organic" },
+    { from: "n7b_synth", to: "n8_resolve", relation: "resolves_or_requests" },
+    { from: "n8_resolve", to: "n9_container", relation: "destination_to_container" },
+    { from: "n9_container", to: "n10_load", relation: "loads" },
   ],
 };

@@ -4,7 +4,7 @@ blueprint_id: dynamicDexDecryption
 title: 'Execution Flow Trace: Dynamic Dex Decryption and Loading'
 schema_version: 1.0.0
 rubric_id: runtime_loading_of_code
-chain_id: null
+chain_id: runtime_loading_of_code__decryption_and_execution_of_an_existing_file_in_asse
 entry: N1
 nodes:
 - node_id: N1

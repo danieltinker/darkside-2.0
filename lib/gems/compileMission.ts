@@ -24,7 +24,7 @@ export function compileFlowGraph(gem: GraphGem): FlowGraph {
   return {
     entry: gem.entry,
     nodes: gem.nodes.map(toFlowNode),
-    edges: gem.edges.map((e) => ({ from: e.from, to: e.to, relation: e.relation })),
+    edges: gem.edges.map((e) => ({ from: e.from, to: e.to, relation: e.relation, label: e.label })),
     required_nodes: gem.required_nodes,
   };
 }

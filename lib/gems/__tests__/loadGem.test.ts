@@ -4,10 +4,10 @@ import { loadGraphGem, loadChains, loadCategory, loadBlueprint } from "@/lib/gem
 const RUBRIC = "attribution_gated_webview_uncloaking";
 
 describe("loadGem", () => {
-  it("loads + validates the graph gem with 9 nodes", () => {
+  it("loads + validates the traced graph gem with the 11-node cloak graph", () => {
     const g = loadGraphGem(RUBRIC);
-    expect(g.nodes).toHaveLength(9);
-    expect(g.required_nodes).toEqual(["n1_callback", "n2_parse", "n3_load"]);
+    expect(g.nodes).toHaveLength(11);
+    expect(g.required_nodes).toEqual(["n4_callback", "n6_gate", "n8_resolve", "n10_load"]);
   });
   it("loads the strong_8 chain", () => {
     const c = loadChains(RUBRIC);
@@ -83,7 +83,7 @@ describe("behavioral blueprints", () => {
 describe("blueprint ↔ chain relations", () => {
   it("each owned blueprint points at a real chain in its rubric", () => {
     for (const id of ["onConversionDataSucces", "httpResponseWebView",
-      "conditionalStaticSignals", "privacyPolicyRedirection"]) {
+      "conditionalStaticSignals", "privacyPolicyRedirection", "dynamicDexDecryption"]) {
       const bp = loadBlueprint(id);
       expect(bp.rubric_id).toBeTruthy();
       expect(bp.chain_id).toBeTruthy();

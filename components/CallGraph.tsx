@@ -8,31 +8,37 @@ import type { FlowEdge, EdgeRelation } from "@/lib/contract";
 import { NodeCard } from "./NodeCard";
 import { ActionSummary } from "./ActionSummary";
 
-const STAGE_LABEL: Record<1 | 2 | 3, string> = {
-  1: "Stage 1",
-  2: "Stage 2",
-  3: "Stage 3",
-};
-
 const RELATION_TONE: Record<EdgeRelation, string> = {
   calls: "text-accent-cyan border-accent-cyan/30",
   returns: "text-accent-violet border-accent-violet/30",
   data_to: "text-accent-amber border-accent-amber/30",
   triggers: "text-accent-green border-accent-green/30",
+  initializes: "text-accent-cyan border-accent-cyan/30",
+  registers: "text-accent-cyan border-accent-cyan/30",
+  async_triggers: "text-accent-green border-accent-green/30",
+  branch_benign: "text-emerald-400 border-emerald-400/40",
+  branch_uncloaked: "text-rose-400 border-rose-400/40",
+  resolves_or_requests: "text-accent-amber border-accent-amber/30",
+  destination_to_container: "text-accent-violet border-accent-violet/30",
+  loads: "text-accent-violet border-accent-violet/30",
 };
 
-function relationBetween(
+function edgeBetween(
   edges: FlowEdge[],
   fromId: string,
   toId: string,
-): EdgeRelation | undefined {
+): FlowEdge | undefined {
   const direct = edges.find((e) => e.from === fromId && e.to === toId);
-  if (direct) return direct.relation;
+  if (direct) return direct;
   // not display-adjacent in the graph: label by how `to` is reached
-  return edges.find((e) => e.to === toId)?.relation;
+  return edges.find((e) => e.to === toId);
 }
 
-function Connector({ relation }: { relation?: EdgeRelation }) {
+function Connector({ edge }: { edge?: FlowEdge }) {
+  // The branch label (e.g. "af_status == Non-organic") is the cloak proof —
+  // surface it verbatim; otherwise fall back to the relation name.
+  const caption = edge?.label ?? edge?.relation;
+  const tone = edge ? RELATION_TONE[edge.relation] : "";
   return (
     <div className="flex flex-col items-center" aria-hidden>
       <svg width="2" height="14" className="overflow-visible">
@@ -45,11 +51,11 @@ function Connector({ relation }: { relation?: EdgeRelation }) {
           strokeWidth="2"
         />
       </svg>
-      {relation && (
+      {caption && (
         <span
-          className={`rounded-full border bg-bg-base px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider ${RELATION_TONE[relation]}`}
+          className={`rounded-full border bg-bg-base px-2 py-0.5 font-mono text-[10px] tracking-wider ${edge?.label ? "" : "uppercase"} ${tone}`}
         >
-          {relation}
+          {caption}
         </span>
       )}
       <svg width="10" height="14" className="overflow-visible">
@@ -60,13 +66,12 @@ function Connector({ relation }: { relation?: EdgeRelation }) {
   );
 }
 
-function BandHeader({ stage, title, count }: { stage: 1 | 2 | 3; title: string; count: number }) {
+function BandHeader({ title, count }: { title: string; count: number }) {
   return (
     <div className="mb-2 mt-1 flex items-center gap-3">
-      <span className="flex h-6 items-center rounded-md border border-edge-strong bg-bg-raised px-2 font-mono text-[11px] font-semibold uppercase tracking-wider text-ink-secondary">
-        {STAGE_LABEL[stage]}
+      <span className="flex h-6 items-center rounded-md border border-edge-strong bg-bg-raised px-2 text-[13px] font-medium text-ink-primary">
+        {title}
       </span>
-      <span className="text-[13px] font-medium text-ink-primary">{title}</span>
       <span className="font-mono text-[11px] text-ink-faint">
         {count} node{count > 1 ? "s" : ""}
       </span>
@@ -130,17 +135,16 @@ export function CallGraph({
       ) : (
         ordered.map((rn, i) => {
           const prev = ordered[i - 1];
-          const isStageStart = !prev || prev.node.stage !== rn.node.stage;
-          const band = recon.bands.find((b) => b.stage === rn.node.stage)!;
+          const phase = rn.node.phase ?? "other";
+          const isPhaseStart = !prev || (prev.node.phase ?? "other") !== phase;
+          const band = recon.bands.find((b) => b.phase === phase)!;
           const next = ordered[i + 1];
-          const relation = next
-            ? relationBetween(edges, rn.node.node_id, next.node.node_id)
+          const edge = next
+            ? edgeBetween(edges, rn.node.node_id, next.node.node_id)
             : undefined;
           return (
             <div key={rn.node.node_id}>
-              {isStageStart && (
-                <BandHeader stage={band.stage} title={band.title} count={band.nodes.length} />
-              )}
+              {isPhaseStart && <BandHeader title={band.title} count={band.nodes.length} />}
               <NodeCard
                 rn={rn}
                 artifactContent={artifactContent}
@@ -148,7 +152,7 @@ export function CallGraph({
                 showDynamic={showDynamic}
                 humanControls={renderHumanControls?.(rn)}
               />
-              {next && <Connector relation={relation} />}
+              {next && <Connector edge={edge} />}
             </div>
           );
         })

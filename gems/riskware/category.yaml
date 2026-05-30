@@ -18,4 +18,7 @@ rubrics:
   - rubric_id: command_and_control                     # known-riskware-URL signal (ties to lib/known-urls.ts)
     status: active
     skywalker_gem: gems/riskware/skywalker.gem.md
+  - rubric_id: runtime_loading_of_code                 # 5 signal chains; homes the dynamicDexDecryption blueprint
+    status: active
+    skywalker_gem: gems/riskware/skywalker.gem.md
 learning_policy: { canonical_gems_mutable_by_agent: false, human_approval_required_for_promotion: true, auto_promote: false }

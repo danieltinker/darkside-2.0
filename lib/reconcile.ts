@@ -49,7 +49,7 @@ export type ReconcileOptions = {
   includeDynamic?: boolean;
 };
 
-export type Band = { stage: 1 | 2 | 3; title: string; nodes: ReconciledNode[] };
+export type Band = { phase: string; title: string; nodes: ReconciledNode[] };
 
 export type Reconciliation = {
   nodes: ReconciledNode[];
@@ -64,11 +64,19 @@ export type Reconciliation = {
   urlIntel?: UrlIntel;
 };
 
-const STAGE_TITLES: Record<1 | 2 | 3, string> = {
-  1: "Trigger",
-  2: "URL build",
-  3: "Sink",
+// Phase → human band title. The flow's `phase` field drives banding; an
+// unknown phase falls back to a title-cased version of the key.
+const PHASE_TITLES: Record<string, string> = {
+  lifecycle: "Lifecycle & SDK setup",
+  acquisition: "Acquire attribution signal",
+  cloaking_gate: "Cloaking gate",
+  url_resolution: "Resolve destination URL",
+  render: "Render in WebView",
 };
+
+function phaseTitle(phase: string): string {
+  return PHASE_TITLES[phase] ?? phase.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export function reconcile(
   mission: MissionContext,
@@ -98,10 +106,16 @@ export function reconcile(
     };
   });
 
-  const bands: Band[] = ([1, 2, 3] as const).map((stage) => ({
-    stage,
-    title: STAGE_TITLES[stage],
-    nodes: nodes.filter((n) => n.node.stage === stage),
+  // Band by phase, preserving first-seen order across the node list.
+  const phaseOrder: string[] = [];
+  for (const n of nodes) {
+    const p = n.node.phase ?? "other";
+    if (!phaseOrder.includes(p)) phaseOrder.push(p);
+  }
+  const bands: Band[] = phaseOrder.map((phase) => ({
+    phase,
+    title: phaseTitle(phase),
+    nodes: nodes.filter((n) => (n.node.phase ?? "other") === phase),
   }));
 
   const chain = {
