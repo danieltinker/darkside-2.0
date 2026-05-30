@@ -2,10 +2,10 @@ import Link from "next/link";
 
 const LINKS = [
   { href: "/", label: "Overview", key: "home" },
-  { href: "/queue", label: "Queue · cases", key: "queue" },
-  { href: "/yoda", label: "Yoda · static", key: "yoda" },
-  { href: "/vader", label: "Vader · dynamic", key: "vader" },
-  { href: "/bridge", label: "PixelBridge · fs", key: "bridge" },
+  { href: "/queue", label: "Queue", key: "queue" },
+  { href: "/yoda", label: "Yoda", key: "yoda" },
+  { href: "/vader", label: "Vader", key: "vader" },
+  { href: "/bridge", label: "Bridge", key: "bridge" },
   { href: "/diagnostics", label: "Diagnostics", key: "diagnostics" },
 ] as const;
 
@@ -16,15 +16,18 @@ export function TopNav({
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-edge bg-bg-base/85 backdrop-blur">
-      <div className="flex h-12 w-full items-center justify-between gap-3 overflow-x-auto px-6 lg:px-10">
+      {/* Wraps to a second line on narrow/zoomed screens instead of clipping the tabs. */}
+      <div className="flex min-h-12 w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 px-6 py-1.5 lg:px-10">
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-accent-green shadow-glow" />
           <span className="font-mono text-[13px] font-semibold tracking-wide text-ink-primary">
             darkside
           </span>
-          <span className="font-mono text-[11px] text-ink-faint">/ mmp-uncloaking</span>
+          <span className="hidden font-mono text-[11px] text-ink-faint sm:inline">
+            / mmp-uncloaking
+          </span>
         </Link>
-        <nav className="flex shrink-0 items-center gap-1">
+        <nav className="flex flex-wrap items-center gap-1">
           {LINKS.map((l) => (
             <Link
               key={l.key}
