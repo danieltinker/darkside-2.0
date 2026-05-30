@@ -10,7 +10,7 @@ const LINKS = [
 export function TopNav({ active }: { active: "home" | "yoda" | "vader" | "bridge" }) {
   return (
     <header className="sticky top-0 z-20 border-b border-edge bg-bg-base/85 backdrop-blur">
-      <div className="mx-auto flex h-12 max-w-6xl items-center justify-between gap-3 overflow-x-auto px-5">
+      <div className="flex h-12 w-full items-center justify-between gap-3 overflow-x-auto px-6 lg:px-10">
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-accent-green shadow-glow" />
           <span className="font-mono text-[13px] font-semibold tracking-wide text-ink-primary">

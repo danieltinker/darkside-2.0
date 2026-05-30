@@ -49,7 +49,7 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       <TopNav active="home" />
-      <main className="mx-auto max-w-6xl px-5 py-10">
+      <main className="w-full px-6 lg:px-10 py-10">
         <div className="max-w-3xl">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-accent-green">
             MMP uncloaking · one IOC, end-to-end

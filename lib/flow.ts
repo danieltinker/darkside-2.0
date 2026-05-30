@@ -23,6 +23,9 @@ export const mmpCloakingGraph: FlowGraph = {
     // ---- Stage 1 · Trigger ----------------------------------------
     {
       node_id: "n1_callback",
+      phase: "acquisition",
+      boundary: "acquisition_signal",
+      behavioral_role: "attribution_payload_entry",
       stage: 1,
       label: "onConversionDataSuccess",
       kind: "trigger",
@@ -44,6 +47,9 @@ export const mmpCloakingGraph: FlowGraph = {
     // ---- Stage 2 · URL build --------------------------------------
     {
       node_id: "n2_invoke",
+      phase: "url_build",
+      boundary: null,
+      behavioral_role: "runtime_url_builder",
       stage: 2,
       label: "a.invoke(data)",
       kind: "dispatch",
@@ -65,6 +71,9 @@ export const mmpCloakingGraph: FlowGraph = {
     },
     {
       node_id: "n2_http",
+      phase: "url_build",
+      boundary: null,
+      behavioral_role: "remote_destination_resolution",
       stage: 2,
       label: "a.g(token) — tracker GET",
       kind: "http",
@@ -85,6 +94,9 @@ export const mmpCloakingGraph: FlowGraph = {
     },
     {
       node_id: "n2_parse",
+      phase: "url_build",
+      boundary: "destination_resolution",
+      behavioral_role: "attribution_field_extraction",
       stage: 2,
       label: 'JSONObject.optString("dl")',
       kind: "parse",
@@ -102,6 +114,9 @@ export const mmpCloakingGraph: FlowGraph = {
     },
     {
       node_id: "n2_deobf",
+      phase: "url_build",
+      boundary: null,
+      behavioral_role: "runtime_url_builder",
       stage: 2,
       label: "B64.dec(dl) → cleartext URL",
       kind: "deobf",
@@ -141,6 +156,9 @@ export const mmpCloakingGraph: FlowGraph = {
     // ---- Stage 3 · Sink -------------------------------------------
     {
       node_id: "n3_o",
+      phase: "sink",
+      boundary: null,
+      behavioral_role: "browser_container_setup",
       stage: 3,
       label: "MainActivity.o(url)",
       kind: "dispatch",
@@ -159,6 +177,9 @@ export const mmpCloakingGraph: FlowGraph = {
     },
     {
       node_id: "n3_coro",
+      phase: "sink",
+      boundary: null,
+      behavioral_role: "dispatch_indirection",
       stage: 3,
       label: "Cloak$block$1.invokeSuspend",
       kind: "dispatch",
@@ -179,6 +200,9 @@ export const mmpCloakingGraph: FlowGraph = {
     },
     {
       node_id: "n3_native",
+      phase: "sink",
+      boundary: null,
+      behavioral_role: "native_dispatch",
       stage: 3,
       label: "libcloak.so JNI dispatch",
       kind: "dispatch",
@@ -206,6 +230,9 @@ export const mmpCloakingGraph: FlowGraph = {
     },
     {
       node_id: "n3_load",
+      phase: "sink",
+      boundary: "render",
+      behavioral_role: "in_app_destination_render",
       stage: 3,
       label: "WebView.loadUrl(url)",
       kind: "sink",

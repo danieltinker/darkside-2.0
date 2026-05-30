@@ -54,7 +54,7 @@ function StaticMode({ b }: { b: Bridge }) {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-5 pt-6 pb-24">
+    <main className="w-full px-6 lg:px-10 pt-6 pb-24">
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-yoda">
@@ -143,7 +143,7 @@ function ReconciledMode({ b }: { b: Bridge }) {
   }, [recon.effectiveVerdict, evidence, mission]);
 
   return (
-    <main className="mx-auto max-w-6xl px-5 pt-6 pb-24">
+    <main className="w-full px-6 lg:px-10 pt-6 pb-24">
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-yoda">Yoda · reconcile</p>

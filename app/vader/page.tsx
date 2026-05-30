@@ -101,7 +101,7 @@ function WorkingMode({ b }: { b: Bridge }) {
   if (!ran) {
     const recon = reconcile(mission, undefined, { includeDynamic: false });
     return (
-      <main className="mx-auto max-w-6xl px-5 pt-6 pb-24">
+      <main className="w-full px-6 lg:px-10 pt-6 pb-24">
         <div className="mb-4">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-vader">
             Darth Vader · dynamic lab
@@ -143,7 +143,7 @@ function WorkingMode({ b }: { b: Bridge }) {
 
   const recon = reconcile(mission, evidence);
   return (
-    <main className="mx-auto max-w-6xl px-5 pt-6 pb-24">
+    <main className="w-full px-6 lg:px-10 pt-6 pb-24">
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-vader">
