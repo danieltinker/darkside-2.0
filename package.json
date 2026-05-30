@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "diagnose": "node scripts/diagnose.mjs",
-    "preflight": "node scripts/preflight.mjs"
+    "preflight": "node scripts/preflight.mjs",
+    "package": "node scripts/package.mjs"
   },
   "dependencies": {
     "next": "^15.1.0",

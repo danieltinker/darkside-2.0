@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ROLE, ROLE_LABEL, VISIBLE_TABS } from "@/lib/role";
 
 const LINKS = [
   { href: "/", label: "Overview", key: "home" },
@@ -27,9 +28,19 @@ export function TopNav({
           <span className="hidden font-mono text-[11px] text-ink-faint sm:inline">
             / mmp-uncloaking
           </span>
+          {ROLE !== "both" && (
+            <span
+              className={`ml-1 rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${
+                ROLE === "yoda" ? "border-yoda/40 bg-yoda/10 text-yoda" : "border-vader/40 bg-vader/10 text-vader"
+              }`}
+              title="This machine is pinned to one role"
+            >
+              {ROLE_LABEL[ROLE]}
+            </span>
+          )}
         </Link>
         <nav className="flex flex-wrap items-center gap-1">
-          {LINKS.map((l) => (
+          {LINKS.filter((l) => VISIBLE_TABS[ROLE].includes(l.key)).map((l) => (
             <Link
               key={l.key}
               href={l.href}
