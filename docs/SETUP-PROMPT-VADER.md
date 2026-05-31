@@ -14,6 +14,12 @@ URLs) → ship it back over PixelBridge.
 Run pinned to this role: `.env` has `DARKSIDE_ROLE=vader` (nav locked to Vader/Bridge/Diagnostics).
 Localhost: `npm ci && npm run build && npm start`.
 
+> The dynamic agent's **runtime work prompt** is **`gems/darth_vader.gem.md`** (the peer to
+> Sky Walker's `skywalker.gem.md`). Wire your Frida-driven runner / agent to follow it — it
+> defines the preflight gate, the organic/non-organic experiments, what proves each boundary,
+> and the EvidenceReturn to emit. This setup prompt is about plugging in the *tools*; that gem
+> is what the *agent* executes.
+
 ## Before any run — system health is the gate
 `/diagnostics` → **Device system health** computes two gates (`lib/preflight.ts`, already real — it
 spawns the host tools):
