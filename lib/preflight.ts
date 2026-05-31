@@ -20,6 +20,18 @@ export type ToolCheck = {
   status: ToolStatus;
   detail?: string;
   remediation?: string;
+  country?: string; // NordVPN only: the connected country, shown on the dashboard
+};
+
+// A readiness gate for a specific operation: it's GO only when every required
+// check is alive. `blocking` lists the required checks that aren't.
+export type Gate = {
+  id: "install" | "dispatch";
+  label: string;
+  description: string;
+  requires: string[];
+  blocking: string[];
+  ready: boolean;
 };
 
 export type PreflightReport = {
@@ -28,6 +40,7 @@ export type PreflightReport = {
   env: { platform: string; proxyPort: number };
   summary: { mandatoryAlive: number; mandatoryTotal: number; optionalAlive: number };
   checks: ToolCheck[];
+  gates: Gate[]; // install (Yoda adb push) · dispatch (Vader dynamic)
 };
 
 type Run = { code: number | string; stdout: string; stderr: string; notFound: boolean };
@@ -98,7 +111,11 @@ async function checkNordVpn(): Promise<ToolCheck> {
   if (r.notFound) {
     return { ...base, status: "unknown", detail: "no nordvpn CLI on this platform", remediation: "Open NordVPN and confirm it shows 'Connected' to the target country (no CLI on macOS/Windows to auto-verify)." };
   }
-  if (/Status:\s*Connected/i.test(r.stdout)) return { ...base, status: "alive", detail: r.stdout.split("\n").find((l) => /Country|Server/i.test(l))?.trim() ?? "connected" };
+  if (/Status:\s*Connected/i.test(r.stdout)) {
+    const country = r.stdout.match(/Country:\s*(.+)/i)?.[1]?.trim();
+    const server = r.stdout.match(/(?:Server|Hostname):\s*(.+)/i)?.[1]?.trim();
+    return { ...base, status: "alive", country, detail: [country, server].filter(Boolean).join(" · ") || "connected" };
+  }
   return { ...base, status: "dead", detail: "not connected", remediation: "Connect NordVPN to the target country before the run." };
 }
 
@@ -124,11 +141,31 @@ export async function runPreflight(): Promise<PreflightReport> {
   const mandatoryAlive = mandatory.filter((c) => c.status === "alive").length;
   const optionalAlive = checks.filter((c) => !c.mandatory && c.status === "alive").length;
 
+  // Readiness gates — each operation needs a specific subset of checks alive.
+  const alive = (id: string) => checks.find((c) => c.id === id)?.status === "alive";
+  const gate = (id: Gate["id"], label: string, description: string, requires: string[]): Gate => ({
+    id, label, description, requires,
+    blocking: requires.filter((r) => !alive(r)),
+    ready: requires.every(alive),
+  });
+  const gates: Gate[] = [
+    // A) install / adb push from Yoda — only needs the device attached.
+    gate("install", "Install — adb push (Yoda)", "Push/install the APK to the device", ["device.adb"]),
+    // Vader dynamic dispatch — needs the full dynamic stack live.
+    gate(
+      "dispatch",
+      "Dynamic dispatch (Vader)",
+      "Run dynamic experiments on the device",
+      ["frida", "device.network", "proxy.httptoolkit", "vpn.nordvpn"],
+    ),
+  ];
+
   return {
     ok: mandatory.every((c) => c.status === "alive"),
     ranAt: new Date().toISOString(),
     env: { platform: process.platform, proxyPort },
     summary: { mandatoryAlive, mandatoryTotal: mandatory.length, optionalAlive },
     checks,
+    gates,
   };
 }

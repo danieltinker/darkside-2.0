@@ -44,10 +44,20 @@ async function main() {
     if (c.status !== "alive" && c.remediation) console.log(`      ${C.yellow}↳ ${c.remediation}${C.reset}`);
   }
 
+  // Readiness gates
+  console.log("");
+  for (const g of report.gates ?? []) {
+    const tag = g.ready ? `${C.green}GO   ${C.reset}` : `${C.red}NO-GO${C.reset}`;
+    const blocked = g.ready ? "" : ` ${C.yellow}(blocked: ${g.blocking.join(", ")})${C.reset}`;
+    console.log(`  [${tag}] ${g.label}${blocked}`);
+  }
+
   const { mandatoryAlive, mandatoryTotal, optionalAlive } = report.summary;
+  const nord = report.checks.find((c) => c.id === "vpn.nordvpn");
   console.log(
     `\n${report.ok ? C.green + "READY" : C.red + "NOT READY"}${C.reset} ` +
-      `${C.dim}· mandatory ${mandatoryAlive}/${mandatoryTotal} alive · optional ${optionalAlive} alive · ${report.env.platform}${C.reset}`,
+      `${C.dim}· mandatory ${mandatoryAlive}/${mandatoryTotal} alive · optional ${optionalAlive} alive · ${report.env.platform}` +
+      `${nord?.country ? ` · NordVPN ${nord.country}` : ""}${C.reset}`,
   );
   if (!report.ok) console.log(`${C.yellow}Do not start a dynamic run until all mandatory tools are alive.${C.reset}`);
 
