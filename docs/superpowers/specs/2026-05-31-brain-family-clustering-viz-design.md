@@ -17,22 +17,32 @@ of the darkside detection model as two stacked layers:
 2. **Execution layer (attack graph):** the per-app traced flow graph behind a
    signal (nodes = code/runtime steps, edges = control/data relations).
 
-It exists to let us *see* the model — current coverage and its gaps — and to
-preview what the model looks like **at scale** with many categories and
-techniques. It is explicitly **not** wired into the product: no nav entry, no
-shared state, read-only.
+It exists to let us *see* the model — the full `riskware` family tree and the
+attack graph behind every signal. It is explicitly **not** wired into the
+product: no nav entry, no shared state, read-only.
+
+**Scope for this build: `riskware` only.** The multi-category "at scale" view is
+deferred — the architecture is built multi-category-ready (`BrainModel` holds an
+array of categories) so additional categories slot in later with no rework, but
+only `riskware` is seeded now.
 
 ### Goals
-- Faithfully render the **current** `riskware` gem data (1 category, 5 rubrics,
-  their signals, and the single fully-traced attack graph).
-- Render an **at-scale** synthetic dataset (multiple categories, many techniques,
-  many full attack graphs) with **all node info observable**.
+- Faithfully render the **current** `riskware` gem data: 1 category, its 5 real
+  rubrics, and their real signals (built from the rubrics/chains we have).
+- Make **every signal drillable** into an attack graph:
+  - the one **traced** graph (MMP `attribution_gated_webview_uncloaking` strong-8)
+    renders from real gem data;
+  - every **un-traced** signal renders a **generated MOCK attack graph**, clearly
+    flagged "mock — to be replaced", purely for visualization completeness.
+- All node info observable (expandable per-node detail).
 - A separate browsable window, independent of the project tabs.
 
 ### Non-goals (YAGNI)
+- No multi-category / synthetic at-scale dataset in this build (deferred; added later).
 - No editing, persistence, or gem authoring.
 - No auth, no backend service, no realtime.
 - No integration into `TopNav` or any product route.
+- No role-only **blueprint** fallback — un-traced signals get mock graphs, not blueprints.
 - No changes to existing product behavior or files (other than adding the new
   isolated route folder + the `brain/` lib + one dev dependency).
 
@@ -68,8 +78,10 @@ CATEGORY (cluster group)   gems/riskware/category.yaml        CategorySchema
 | `command_and_control` | Command and Control | high | 1 | ❌ |
 | `runtime_loading_of_code` | Runtime Loading of Code | high | 2 | ❌ |
 
-> Only 1 of 5 rubrics has a traced attack graph today. The board renders this
-> honestly (rich graph + 4 "blueprint/stub" rubrics) — the gap is informative.
+> Only 1 of 5 rubrics has a traced attack graph today. The board renders the one
+> real traced graph plus generated **mock** graphs (flagged, to be replaced) for
+> every other signal — so the whole riskware tree is drillable and the coverage
+> gap stays visible.
 
 **Node kinds (10):** `trigger, dispatch, http, parse, deobf, sink, condition,
 benign_branch, assessment, verdict`.
@@ -84,8 +96,9 @@ resolves_or_requests, destination_to_container, loads`.
 
 There is also a third, role-only **blueprint** graph tier
 (`BlueprintGraphSchema`, `gems/riskware/blueprints/*.graph.yaml`) — generic
-technique flows with no per-app signature. The board may surface blueprints as a
-fallback "Layer-2 preview" for rubrics that have no traced graph (see §4).
+technique flows with no per-app signature. **This build does not use blueprints**;
+un-traced signals get generated mock graphs instead (see §5). Blueprints are noted
+here only for completeness.
 
 ---
 
@@ -104,7 +117,8 @@ React Flow is client-side; gems are read with `server-only` fs loaders. So:
 - `app/brain/page.tsx` is a **server component**: calls `brain/adapter/loadModel.ts`
   (which wraps the existing `lib/gems/loadGem.ts` loaders), serializes the
   `BrainModel`, and passes it as a prop into the client `<BrainBoard>`.
-- The at-scale fixture is plain data, importable on the client directly.
+- Mock graphs are generated inside `loadModel` (server side) and embedded in the
+  serialized `BrainModel`, so the client board receives one uniform model.
 
 ### File layout
 ```
@@ -112,16 +126,15 @@ brain/
   README.md                      # what it is, how to open (/brain), data sources
   types.ts                       # BrainModel view types (UI-facing, decoupled from gem schemas)
   adapter/
-    loadModel.ts                 # server-only: real gems → BrainModel (wraps lib/gems loaders)
-  fixtures/
-    atScale.ts                   # synthetic multi-category BrainModel (see §5)
+    loadModel.ts                 # server-only: real riskware gems → BrainModel (wraps lib/gems loaders)
   transform/
+    mockGraph.ts                 # generate a plausible MOCK AttackGraphView for an un-traced signal
     layout.ts                    # dagre auto-layout helper (positions RF nodes)
     toClusterGraph.ts            # BrainModel → RF nodes/edges (Layer 1)
     toAttackGraph.ts             # AttackGraphView → RF nodes/edges (Layer 2)
   palette.ts                     # kind colors, relation tones (mirrors CallGraph RELATION_TONE), strength chips
   components/
-    BrainBoard.tsx               # client root: Current|At-Scale tabs + drill state
+    BrainBoard.tsx               # client root: drill state (Layer 1 ↔ Layer 2)
     ClusterCanvas.tsx            # Layer-1 React Flow canvas
     AttackCanvas.tsx             # Layer-2 React Flow canvas
     Legend.tsx                   # node-kind / edge-relation / strength legend
@@ -134,11 +147,12 @@ brain/
   __tests__/
     toClusterGraph.test.ts
     toAttackGraph.test.ts
-    loadModel.test.ts            # real-gem adapter sanity (counts, wiring)
+    mockGraph.test.ts            # mock generator: valid node-kinds/relations, required-node coverage
+    loadModel.test.ts            # real-gem adapter sanity (counts, wiring, mock attachment)
 app/
   brain/
     layout.tsx                   # full-bleed standalone shell (own <main>, no TopNav)
-    page.tsx                     # server: load model → <BrainBoard current=... atScale=.../>
+    page.tsx                     # server: load model → <BrainBoard model=.../>
 ```
 
 ### `BrainModel` view types (`brain/types.ts`)
@@ -163,12 +177,12 @@ export interface SignalView {
   id: string; name: string;
   strength: "strong" | "medium" | "weak" | "non_signal"; points: 8 | 4 | 2 | 0;
   requiredNodes: string[];
-  attackGraph?: AttackGraphView;      // present only for traced signals
+  attackGraph: AttackGraphView;       // always present: real traced graph, or generated mock
 }
 export interface AttackGraphView {
   graphId: string; entry: string; requiredNodes: string[];
   nodes: AttackNodeView[]; edges: AttackEdgeView[];
-  source: "traced" | "blueprint";     // traced = per-app signatures; blueprint = role-only preview
+  source: "traced" | "mock";          // traced = real per-app gem; mock = generated placeholder, to be replaced
 }
 export interface AttackNodeView {
   id: string; label: string; kind: string; phase: string;
@@ -187,11 +201,12 @@ export interface AttackEdgeView { from: string; to: string; relation: string; la
 React Flow, dagre **left→right**. Nodes: `Category → Rubric → Signal`.
 - **CategoryNode:** name, version, status, `dispatch_gate ≥ N`, scoring tiers, rubric count.
 - **RubricNode:** display name + `rubric_id`, severity badge, `points_if_strong`,
-  # required boundaries, # signals, **"⬡ attack graph"** badge if any signal is traced.
+  # required boundaries, # signals, **"⬡ traced"** badge if any signal has a real graph.
 - **SignalNode:** name, **strength chip** (color per strength), points, # required_nodes,
-  **"graphed"** badge. Click a graphed signal → drill to Layer 2.
+  and a graph-source badge: **"traced"** (real) or **"mock"** (placeholder). Click any
+  signal → drill to Layer 2 (always drillable).
 - Edges: `Category→Rubric` ("contains"), `Rubric→Signal` ("scored by").
-- Affordances: minimap, zoom/pan, fit-view, FilterBar (strength/severity/graphed), Legend.
+- Affordances: minimap, zoom/pan, fit-view, FilterBar (strength/severity/traced-vs-mock), Legend.
 
 ### Layer 2 — Attack execution graph (`AttackCanvas`)
 React Flow, dagre **top→bottom**. The signal's traced flow.
@@ -203,44 +218,53 @@ React Flow, dagre **top→bottom**. The signal's traced flow.
   (mirrors `CallGraph.tsx` `RELATION_TONE` for brand consistency).
 - Header strip: rubric name · chain name · score (`points_if_strong`) ·
   required-node checklist (✓ count). Back button → Layer 1.
-- **Fallback:** if a rubric/signal has no traced graph but a matching blueprint
-  exists, show the blueprint with a clear "role-only preview (no per-app trace)"
-  banner (`source: "blueprint"`). If neither, show an empty-state explaining the
-  coverage gap.
+- **Traced vs mock:** the real traced graph renders normally. A mock graph
+  (`source: "mock"`) renders through the **same** canvas but with a distinct
+  visual treatment — dashed node borders + a persistent **"MOCK — placeholder,
+  to be replaced"** banner — so it is never mistaken for real coverage.
 
 ### Window shell (`app/brain/layout.tsx` + `BrainBoard`)
 - Full-bleed standalone page (no `TopNav`), own minimal header: title +
-  **Current | At Scale** tabs + breadcrumb (Layer 1 ↔ Layer 2).
+  breadcrumb (Layer 1 ↔ Layer 2). Single riskware board — no tabs in this build
+  (category switcher is added when more categories are seeded).
 - Reuses existing Tailwind theme tokens (`bg-base`, `accent-*`) so it feels native.
 
 ---
 
-## 5. Data
+## 5. Data — `riskware` only (live gems + generated mocks)
 
-### Current view — `brain/adapter/loadModel.ts` (server-only)
-Builds `BrainModel` from real gems:
+### `brain/adapter/loadModel.ts` (server-only)
+Builds the `BrainModel` from real gems:
 1. `loadCategory("riskware")` → CategoryView (+ scoring/gate).
 2. For each rubric in the category: read `rubric.yaml` (name/severity/boundaries)
    + `loadChains(rubricId)` → SignalView[].
-3. For signals whose rubric has a `graph.yaml`: `loadGraphGem(rubricId)` →
-   AttackGraphView (`source: "traced"`), attaching it to the matching chain
-   (by `chain_id`/`required_nodes`). Optionally attach a blueprint preview where
-   a traced graph is absent.
+3. **Attach an attack graph to every signal:**
+   - If a real traced graph exists for the signal — i.e. the rubric has a
+     `graph.yaml` and the chain's `required_nodes` match it (today: only
+     `attribution_gated_webview_uncloaking_strong_8`) — `loadGraphGem(rubricId)`
+     → AttackGraphView with `source: "traced"`.
+   - Otherwise, call `mockGraph(signal, rubric)` → AttackGraphView with
+     `source: "mock"`.
 
-Always reflects the live gem files → no drift.
+Always reflects the live gem files → no drift. Result: 1 category, 5 rubrics,
+their real signals, 1 traced graph + N mock graphs.
 
-### At-Scale view — `brain/fixtures/atScale.ts`
-Hand-authored synthetic `BrainModel`, **rich tier** (approved):
-- **~4 categories:** `riskware`, `toll_fraud`, `trojan`, `backdoor`.
-- **~15 rubrics total** spread across them, each with realistic
-  severity/boundaries.
-- **2–4 signals** per rubric across all strengths.
-- **~8 fully-populated attack graphs** (every node has kind/phase/boundary/role/
-  static_confirmed/frida_hook/signature; edges use the real 12 relations) so the
-  "all info in every node, easy to observe" requirement is demonstrably met.
-- Rendered through the **same** canvases → proves the board scales.
+### `brain/transform/mockGraph.ts` — placeholder graph generator
+Deterministic, pure. Given a signal + its rubric, synthesizes a small, plausible
+attack graph **for visualization only** (to be replaced by real traced graphs):
+- Shapes the flow from the rubric's `required_behavioral_boundaries` when present
+  (one node per boundary, in order), else a generic
+  `trigger → condition → sink` skeleton scaled to the signal's strength.
+- Uses **only** the real 10 node-kinds and 12 edge-relations, so it renders
+  identically to traced graphs and is a faithful placeholder.
+- Marks `required` nodes to mirror the signal's intended `required_nodes`.
+- Leaves `signature`/`frida_hook` empty (or clearly stubbed) and sets
+  `source: "mock"` so the UI flags it.
+- **Deterministic** (no randomness — seeded off `chain_id`) so layout/tests are stable.
 
-This is illustrative research data, clearly labeled synthetic in the UI.
+> The mock generator is the one piece with genuine design latitude (how to shape
+> a believable placeholder from a signal's metadata). It's a good candidate for a
+> hands-on contribution during implementation (see plan).
 
 ---
 
@@ -257,15 +281,18 @@ This is illustrative research data, clearly labeled synthetic in the UI.
 ## 7. Testing & verification
 
 - **Vitest unit tests** (pure functions):
-  - `toClusterGraph`: category→rubric→signal counts and edge wiring; "graphed"
-    flag set iff a signal has an attack graph; strength→points mapping.
+  - `toClusterGraph`: category→rubric→signal counts and edge wiring;
+    traced-vs-mock badge correctness; strength→points mapping.
   - `toAttackGraph`: node/edge counts match input; `isRequired` set for
     `required_nodes`; relation/label preserved.
+  - `mockGraph`: only valid node-kinds/relations emitted; deterministic for a
+    given `chain_id`; required nodes present; `source: "mock"`.
   - `loadModel` (real gems): exactly 1 category, 5 rubrics, expected signal
-    counts, exactly 1 traced graph (`attribution_gated_webview_uncloaking`).
-- **Manual browser pass** at `/brain`: Current tab renders cluster map; drilling
-  into the MMP signal shows the 10-node attack graph with signatures; At-Scale
-  tab renders 4 category clusters and 8 full graphs without layout breakage.
+    counts, exactly 1 **traced** graph (`attribution_gated_webview_uncloaking`),
+    all other signals carry **mock** graphs.
+- **Manual browser pass** at `/brain`: cluster map renders the riskware tree;
+  drilling into the MMP signal shows the 10-node traced graph with signatures;
+  drilling into an un-traced signal shows a dashed mock graph with the MOCK banner.
 - `npm run typecheck` and `npm run test` green.
 
 ---
@@ -277,8 +304,10 @@ This is illustrative research data, clearly labeled synthetic in the UI.
   impact.
 - **Serialization across server→client:** `BrainModel` is plain JSON-serializable
   (no class instances, no functions) — safe to pass as a prop.
-- **Synthetic data honesty:** the At-Scale view is labeled synthetic in-UI to
-  avoid being mistaken for real coverage.
-- **Scale rendering perf:** ~4 categories / ~15 rubrics / ~8 graphs is well within
-  React Flow's comfort zone; collapse-by-default for signals keeps Layer 1 light.
+- **Mock-data honesty:** every generated graph is flagged `source: "mock"` and
+  rendered with a dashed/banner treatment so it is never mistaken for real
+  coverage. Mocks are deterministic placeholders to be replaced by real traces.
+- **Multi-category later:** `BrainModel.categories` is already an array and the
+  cluster transform is category-agnostic, so adding categories is data-only — no
+  structural rework. A category switcher/tab is added at that time.
 ```
