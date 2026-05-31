@@ -13,7 +13,7 @@ A standalone, browsable research board that visualizes the **family-clustering g
 of the darkside detection model as two stacked layers:
 
 1. **Clustering layer (taxonomy):** `Category → Rubric → Signal` — the malware
-   family tree (currently one category, `riskware`, with 5 rubrics).
+   family tree (one category, `riskware`, with 10 rubrics per the source-of-truth workbook).
 2. **Execution layer (attack graph):** the per-app traced flow graph behind a
    signal (nodes = code/runtime steps, edges = control/data relations).
 
@@ -27,8 +27,11 @@ array of categories) so additional categories slot in later with no rework, but
 only `riskware` is seeded now.
 
 ### Goals
-- Faithfully render the **current** `riskware` gem data: 1 category, its 5 real
-  rubrics, and their real signals (built from the rubrics/chains we have).
+- Render the **full `riskware` taxonomy** from the source-of-truth workbook
+  (`docs/riskware_rubrics_processed.xlsx`): 1 category, **10 rubrics, 44 signals**
+  with correct strengths. Rubrics already backed by gems are flagged and verified
+  to match the spreadsheet; the other 5 are built "per the template" (signal +
+  strength), flagged `spec_only`.
 - Make **every signal drillable** into an attack graph:
   - the one **traced** graph (MMP `attribution_gated_webview_uncloaking` strong-8)
     renders from real gem data;
@@ -68,20 +71,36 @@ CATEGORY (cluster group)   gems/riskware/category.yaml        CategorySchema
                  └─ EDGE[]  GemEdgeSchema: relation (12 kinds), label (branch condition)
 ```
 
-**Current `riskware` contents:**
+### Source of truth: `docs/riskware_rubrics_processed.xlsx`
 
-| Rubric (`rubric_id`) | Display name | Severity | # Signals | Attack graph |
-|---|---|---|---|---|
-| `attribution_gated_webview_uncloaking` | Attribution-Gated WebView Uncloaking ("MMP uncloaking") | high | 5 | ✅ `graph.yaml` (10 nodes, 4 required) |
-| `device_info_cloaking` | Device info cloaking ("device info") | medium | 9 | ❌ |
-| `arbitrary_obfuscated_url_loading` | Arbitrary Obfuscated URL Loading | high | 2 | ❌ |
-| `command_and_control` | Command and Control | high | 1 | ❌ |
-| `runtime_loading_of_code` | Runtime Loading of Code | high | 2 | ❌ |
+The workbook is authoritative. Its **Summary** sheet defines **10 rubrics / 44
+signals** for the `riskware` category. Strength→points is uniform with the
+category `scoring_model`: **Strong=8, Medium=4, Weak=2, Non-Signal=0**.
 
-> Only 1 of 5 rubrics has a traced attack graph today. The board renders the one
-> real traced graph plus generated **mock** graphs (flagged, to be replaced) for
-> every other signal — so the whole riskware tree is drillable and the coverage
-> gap stays visible.
+The board renders the **full 10-rubric taxonomy**. Five rubrics are already
+implemented as gems (and verified to match the spreadsheet exactly); five exist
+only in the spreadsheet and are built here "per the template" (signal + strength),
+flagged `spec_only` until gems are authored.
+
+| # | Rubric (spreadsheet) | `rubric_id` | Signals | Strengths (S/M/W/NS) | Provenance |
+|---|---|---|---|---|---|
+| 1 | MMP cloaking | `attribution_gated_webview_uncloaking` | 5 | 2/1/1/1 | ✅ gem |
+| 2 | Install Referrer cloaking | `install_referrer_cloaking` | 1 | 0/1/0/0 | spec_only |
+| 3 | Runtime loading of code | `runtime_loading_of_code` | 5 | 1/2/2/0 | ✅ gem |
+| 4 | Geolocation cloaking | `geolocation_cloaking` | 6 | 1/0/5/0 | spec_only |
+| 5 | Arbitrary or obfuscated URL loading | `arbitrary_obfuscated_url_loading` | 10 | 6/3/1/0 | ✅ gem |
+| 6 | Network information cloaking | `network_information_cloaking` | 5 | 0/0/5/0 | spec_only |
+| 7 | Device info cloaking | `device_info_cloaking` | 9 | 0/4/5/0 | ✅ gem |
+| 8 | Time cloaking | `time_cloaking` | 1 | 1/0/0/0 | spec_only |
+| 9 | Command And Control | `command_and_control` | 1 | 1/0/0/0 | ✅ gem |
+| 10 | Partial uncloaking | `partial_uncloaking` | 1 | 1/0/0/0 | spec_only |
+| | **TOTAL** | | **44** | **13/11/19/1** | 5 gem · 5 spec_only |
+
+> Attack-graph coverage is **1 traced signal** today: the MMP
+> `attribution_gated_webview_uncloaking_strong_8` chain (`graph.yaml`, 10 nodes,
+> 4 required). The board renders that one real traced graph plus generated
+> **mock** graphs (flagged, to be replaced) for the other 43 signals — so the
+> whole riskware tree is drillable and the coverage gap stays visible.
 
 **Node kinds (10):** `trigger, dispatch, http, parse, deobf, sink, condition,
 benign_branch, assessment, verdict`.
@@ -125,8 +144,11 @@ React Flow is client-side; gems are read with `server-only` fs loaders. So:
 brain/
   README.md                      # what it is, how to open (/brain), data sources
   types.ts                       # BrainModel view types (UI-facing, decoupled from gem schemas)
+  data/
+    riskwareTaxonomy.ts          # GENERATED: full 10-rubric/44-signal taxonomy from the xlsx (committed)
+    rubricIdMap.ts               # spreadsheet rubric name ↔ rubric_id (+ provenance)
   adapter/
-    loadModel.ts                 # server-only: real riskware gems → BrainModel (wraps lib/gems loaders)
+    loadModel.ts                 # server-only: taxonomy + gem traced-graph + mocks → BrainModel
   transform/
     mockGraph.ts                 # generate a plausible MOCK AttackGraphView for an un-traced signal
     layout.ts                    # dagre auto-layout helper (positions RF nodes)
@@ -148,7 +170,11 @@ brain/
     toClusterGraph.test.ts
     toAttackGraph.test.ts
     mockGraph.test.ts            # mock generator: valid node-kinds/relations, required-node coverage
-    loadModel.test.ts            # real-gem adapter sanity (counts, wiring, mock attachment)
+    taxonomy.test.ts             # 10 rubrics / 44 signals / strength tallies match the xlsx Summary
+    gemConsistency.test.ts       # the 5 gem-backed rubrics' chains.yaml == taxonomy entries (no drift)
+    loadModel.test.ts            # adapter sanity (counts, wiring, traced/mock attachment, provenance)
+scripts/
+  brain-gen-taxonomy.mjs         # one-off: parse docs/riskware_rubrics_processed.xlsx → data/riskwareTaxonomy.ts
 app/
   brain/
     layout.tsx                   # full-bleed standalone shell (own <main>, no TopNav)
@@ -169,8 +195,9 @@ export interface CategoryView {
   rubrics: RubricView[];
 }
 export interface RubricView {
-  id: string; name: string; severity: string;
+  id: string; name: string; description: string; severity: string;
   pointsIfStrong: number; requiredBoundaries: string[];
+  provenance: "gem" | "spec_only";   // gem-backed (verified vs sheet) vs taxonomy-only
   signals: SignalView[];
 }
 export interface SignalView {
@@ -201,7 +228,8 @@ export interface AttackEdgeView { from: string; to: string; relation: string; la
 React Flow, dagre **left→right**. Nodes: `Category → Rubric → Signal`.
 - **CategoryNode:** name, version, status, `dispatch_gate ≥ N`, scoring tiers, rubric count.
 - **RubricNode:** display name + `rubric_id`, severity badge, `points_if_strong`,
-  # required boundaries, # signals, **"⬡ traced"** badge if any signal has a real graph.
+  # required boundaries, # signals, a **provenance badge** (`gem` solid vs
+  `spec_only` dashed/dimmed), and **"⬡ traced"** if any signal has a real graph.
 - **SignalNode:** name, **strength chip** (color per strength), points, # required_nodes,
   and a graph-source badge: **"traced"** (real) or **"mock"** (placeholder). Click any
   signal → drill to Layer 2 (always drillable).
@@ -231,23 +259,31 @@ React Flow, dagre **top→bottom**. The signal's traced flow.
 
 ---
 
-## 5. Data — `riskware` only (live gems + generated mocks)
+## 5. Data — full `riskware` taxonomy (spreadsheet + gems + mocks)
+
+### Source of truth → `brain/data/riskwareTaxonomy.ts` (generated, committed)
+`scripts/brain-gen-taxonomy.mjs` parses `docs/riskware_rubrics_processed.xlsx`
+(both sheets) once and emits a typed `riskwareTaxonomy.ts`: **10 rubrics, 44
+signals**, each with name, strength, and derived points. Committed so the board
+has **no runtime xlsx dependency**; re-run only when the spreadsheet changes.
+`brain/data/rubricIdMap.ts` maps each spreadsheet rubric name → stable
+`rubric_id` + `provenance` (`gem` for the 5 implemented, `spec_only` for the 5
+not-yet-authored).
 
 ### `brain/adapter/loadModel.ts` (server-only)
-Builds the `BrainModel` from real gems:
-1. `loadCategory("riskware")` → CategoryView (+ scoring/gate).
-2. For each rubric in the category: read `rubric.yaml` (name/severity/boundaries)
-   + `loadChains(rubricId)` → SignalView[].
+Assembles the `BrainModel`:
+1. Category shell from `loadCategory("riskware")` (gate + `scoring_model`).
+2. **Rubrics + signals from `riskwareTaxonomy.ts`** (all 10 / 44), tagged with
+   `provenance`. For `gem`-backed rubrics, also pull `severity`/
+   `required_behavioral_boundaries` from the real `rubric.yaml`.
 3. **Attach an attack graph to every signal:**
-   - If a real traced graph exists for the signal — i.e. the rubric has a
-     `graph.yaml` and the chain's `required_nodes` match it (today: only
-     `attribution_gated_webview_uncloaking_strong_8`) — `loadGraphGem(rubricId)`
-     → AttackGraphView with `source: "traced"`.
-   - Otherwise, call `mockGraph(signal, rubric)` → AttackGraphView with
-     `source: "mock"`.
+   - Real **traced** graph where one exists — today only
+     `attribution_gated_webview_uncloaking_strong_8` (`loadGraphGem` →
+     AttackGraphView, `source: "traced"`).
+   - Otherwise `mockGraph(signal, rubric)` → AttackGraphView, `source: "mock"`.
 
-Always reflects the live gem files → no drift. Result: 1 category, 5 rubrics,
-their real signals, 1 traced graph + N mock graphs.
+Result: **1 category, 10 rubrics, 44 signals, 1 traced graph + 43 mocks**, with
+gem-backed rubrics flagged and guarded against drift (see §7).
 
 ### `brain/transform/mockGraph.ts` — placeholder graph generator
 Deterministic, pure. Given a signal + its rubric, synthesizes a small, plausible
@@ -281,18 +317,25 @@ attack graph **for visualization only** (to be replaced by real traced graphs):
 ## 7. Testing & verification
 
 - **Vitest unit tests** (pure functions):
+  - `taxonomy`: the generated `riskwareTaxonomy.ts` has exactly **10 rubrics /
+    44 signals** with the Summary-sheet strength tallies (S/M/W/NS =
+    13/11/19/1); strength→points mapping correct.
+  - `gemConsistency`: for each of the **5 gem-backed** rubrics, the gem
+    `chains.yaml` signal set (names + strengths + count) **equals** the taxonomy
+    entry — guards against gem/spreadsheet drift.
   - `toClusterGraph`: category→rubric→signal counts and edge wiring;
-    traced-vs-mock badge correctness; strength→points mapping.
+    traced-vs-mock badge + `provenance` correctness; strength→points mapping.
   - `toAttackGraph`: node/edge counts match input; `isRequired` set for
     `required_nodes`; relation/label preserved.
   - `mockGraph`: only valid node-kinds/relations emitted; deterministic for a
     given `chain_id`; required nodes present; `source: "mock"`.
-  - `loadModel` (real gems): exactly 1 category, 5 rubrics, expected signal
-    counts, exactly 1 **traced** graph (`attribution_gated_webview_uncloaking`),
-    all other signals carry **mock** graphs.
-- **Manual browser pass** at `/brain`: cluster map renders the riskware tree;
-  drilling into the MMP signal shows the 10-node traced graph with signatures;
-  drilling into an un-traced signal shows a dashed mock graph with the MOCK banner.
+  - `loadModel`: exactly 1 category, **10 rubrics, 44 signals**, exactly 1
+    **traced** graph (`attribution_gated_webview_uncloaking`), 43 **mock** graphs,
+    `provenance` set (5 gem / 5 spec_only).
+- **Manual browser pass** at `/brain`: cluster map renders all 10 rubrics (gem vs
+  spec_only visually distinct); drilling into the MMP signal shows the 10-node
+  traced graph with signatures; drilling into any other signal shows a dashed
+  mock graph with the MOCK banner.
 - `npm run typecheck` and `npm run test` green.
 
 ---
