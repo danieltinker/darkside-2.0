@@ -33,4 +33,10 @@ describe("toAttackGraph", () => {
     expect((edges[0] as any).label).toBe("status==NonOrg");
     expect((edges[0].data as any).relation).toBe("branch_uncloaked");
   });
+
+  it("propagates the mock flag into node data when source is mock", () => {
+    const mockG = { ...g, source: "mock" as const };
+    const { nodes } = toAttackGraph(mockG);
+    expect(nodes.every((n) => (n.data as any).mock === true)).toBe(true);
+  });
 });

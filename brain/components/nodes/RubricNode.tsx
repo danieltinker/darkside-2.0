@@ -14,6 +14,7 @@ export function RubricNode({ data }: { data: any }) {
       <div className="font-mono text-[10px] text-zinc-500">{data.rubricId}</div>
       <div className="mt-2 flex flex-wrap gap-1 font-mono text-[10px] text-zinc-300">
         <span className="rounded bg-zinc-700/40 px-1.5">{data.severity}</span>
+        <span className="rounded bg-zinc-700/40 px-1.5">{data.pointsIfStrong} pts</span>
         <span className="rounded bg-zinc-700/40 px-1.5">{data.signalCount} signals</span>
         {data.requiredBoundaries.length > 0 && (
           <span className="rounded bg-zinc-700/40 px-1.5">{data.requiredBoundaries.length} boundaries</span>

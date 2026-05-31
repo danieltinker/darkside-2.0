@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { BrainModel, Strength } from "@/brain/types";
 import { ClusterCanvas } from "@/brain/components/ClusterCanvas";
 import { AttackCanvas } from "@/brain/components/AttackCanvas";
@@ -13,6 +13,8 @@ export function BrainBoard({ model }: { model: BrainModel }) {
     strengths: new Set<Strength>(["strong", "medium", "weak", "non_signal"]),
     gemOnly: false,
   });
+
+  const handleBack = useCallback(() => setOpenSignalId(null), []);
 
   // Apply filters to a shallow-cloned model (drops signals/rubrics that don't match).
   const filtered = useMemo<BrainModel>(() => {
@@ -51,7 +53,7 @@ export function BrainBoard({ model }: { model: BrainModel }) {
 
       <div className="relative flex-1">
         {open ? (
-          <AttackCanvas rubric={open.rubric} signal={open.signal} onBack={() => setOpenSignalId(null)} />
+          <AttackCanvas rubric={open.rubric} signal={open.signal} onBack={handleBack} />
         ) : (
           <ClusterCanvas model={filtered} onOpenSignal={setOpenSignalId} />
         )}

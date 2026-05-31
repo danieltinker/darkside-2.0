@@ -31,6 +31,7 @@ interface RubricYaml {
   name?: string;
   description?: string;
   severity?: string;
+  points_if_strong?: number;
   required_behavioral_boundaries?: string[];
 }
 
@@ -110,7 +111,7 @@ export function loadModel(): BrainModel {
       name: ry?.name ?? tr.name,
       description: ry?.description ?? tr.description,
       severity: ry?.severity?.split(/\s+/)[0] ?? deriveSeverity(tr.signals.map((s) => s.strength)),
-      pointsIfStrong: 8,
+      pointsIfStrong: ry?.points_if_strong ?? 8,
       requiredBoundaries,
       provenance,
       signals,
