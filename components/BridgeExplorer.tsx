@@ -203,24 +203,36 @@ export function BridgeExplorer() {
   // Read both machines' REAL mailbox state off disk and poll. On a single dev
   // box both states live on the same disk; on two machines each would report
   // only its own mailboxes.
+  // Fail-safe poll: a momentarily unreachable server (e.g. a restart) must NOT
+  // throw an unhandled "Failed to fetch" every tick — skip the tick and keep the
+  // last good state. Guard res.ok so a non-JSON error page doesn't throw either.
   const refresh = useCallback(async () => {
-    const [yodaRes, vaderRes] = await Promise.all([
-      fetch("/api/bridge/state?role=yoda", { cache: "no-store" }),
-      fetch("/api/bridge/state?role=vader", { cache: "no-store" }),
-    ]);
-    const yoda = (await yodaRes.json()) as BridgeStateDTO;
-    const vader = (await vaderRes.json()) as BridgeStateDTO;
-    setPhase({
-      missionInYodaOutbox: yoda.missionInOutbox,
-      missionInVaderInbox: !!vader.mission,
-      evidenceInVaderOutbox: vader.evidenceInOutbox,
-      evidenceInYodaInbox: !!yoda.evidence,
-    });
+    try {
+      const [yodaRes, vaderRes] = await Promise.all([
+        fetch("/api/bridge/state?role=yoda", { cache: "no-store" }),
+        fetch("/api/bridge/state?role=vader", { cache: "no-store" }),
+      ]);
+      if (!yodaRes.ok || !vaderRes.ok) return; // transient hiccup — keep prior state
+      const yoda = (await yodaRes.json()) as BridgeStateDTO;
+      const vader = (await vaderRes.json()) as BridgeStateDTO;
+      setPhase({
+        missionInYodaOutbox: yoda.missionInOutbox,
+        missionInVaderInbox: !!vader.mission,
+        evidenceInVaderOutbox: vader.evidenceInOutbox,
+        evidenceInYodaInbox: !!yoda.evidence,
+      });
+    } catch {
+      // server momentarily unreachable — skip this tick, keep the last good state
+    }
   }, []);
 
   useEffect(() => {
     refresh();
-    const t = setInterval(refresh, POLL_MS);
+    const t = setInterval(() => {
+      // don't poll a hidden/background tab
+      if (typeof document !== "undefined" && document.hidden) return;
+      refresh();
+    }, POLL_MS);
     return () => clearInterval(t);
   }, [refresh]);
 
