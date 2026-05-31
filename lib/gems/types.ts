@@ -145,6 +145,7 @@ export const CategorySchema = z.object({
     strong: z.number(),
     medium: z.number(),
     weak: z.number(),
+    non_signal: z.number(), // the full strength→points mapping chains are validated against
     confirmed_tp_threshold: z.number(),
   }),
   rubrics: z.array(
