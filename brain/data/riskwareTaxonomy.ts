@@ -279,7 +279,7 @@ export const RISKWARE_TAXONOMY: TaxonomyRubric[] = [
     "signals": [
       {
         "id": "command_and_control__known_riskware_urls_a_url_is_considered_known_riskware_url_if_it",
-        "name": "Known riskware URLs. \r\nA URL is considered known Riskware URL if it has been used by at least\r\n5 Apps on Play and 2 of them (0.4 Precision) have been found as TP for Riskware Major. \r\n\r\nNote: Precision should be >= 0.4\r\nNote: You might use either the full domain or \r\nthe root one as long as DONT's are followed. (e.g., www.example.com or example.com)",
+        "name": "Known riskware URLs. \nA URL is considered known Riskware URL if it has been used by at least\n5 Apps on Play and 2 of them (0.4 Precision) have been found as TP for Riskware Major. \n\nNote: Precision should be >= 0.4\nNote: You might use either the full domain or \nthe root one as long as DONT's are followed. (e.g., www.example.com or example.com)",
         "strength": "strong"
       }
     ]

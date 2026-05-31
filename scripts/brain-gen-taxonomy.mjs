@@ -22,12 +22,14 @@ function entry(name) {
 function unescapeXml(s) {
   return s
     .replace(/&#10;/g, "\n")
+    .replace(/&#13;/g, "")
     .replace(/&#9;/g, "\t")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&");
+    .replace(/&amp;/g, "&")
+    .replace(/\r\n?/g, "\n");
 }
 
 // sharedStrings: each <si> may hold one <t> or several <r><t> runs.
