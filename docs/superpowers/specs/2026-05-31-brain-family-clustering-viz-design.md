@@ -231,7 +231,7 @@ Always reflects the live gem files → no drift.
 
 ### At-Scale view — `brain/fixtures/atScale.ts`
 Hand-authored synthetic `BrainModel`, **rich tier** (approved):
-- **~4 categories:** `riskware`, `spyware`, `banking_trojan`, `adware`.
+- **~4 categories:** `riskware`, `toll_fraud`, `trojan`, `backdoor`.
 - **~15 rubrics total** spread across them, each with realistic
   severity/boundaries.
 - **2–4 signals** per rubric across all strengths.
