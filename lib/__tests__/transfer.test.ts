@@ -6,6 +6,7 @@ import {
   packEvidenceBundle,
   importBundle,
   getTransfers,
+  markMissionDone,
   resetBridge,
 } from "@/lib/bridge-fs";
 import { getCompiledMission } from "@/lib/gems/goldenMission";
@@ -26,10 +27,11 @@ describe("transfer integrity (uniqueness, completeness, ledger, dedup)", () => {
     );
   });
 
-  it("a mission bundle carries a unique transfer_id, package, and complete flag", async () => {
+  it("a mission bundle carries a unique transfer_id, package, version, and complete flag", async () => {
     const b = (await packMissionBundle(MISSION_ID))!;
     expect(b.manifest.transfer_id).toMatch(/^m_8821\.yoda\.[0-9a-f]{8}$/);
     expect(b.manifest.package_name).toBe("com.coinflip.rewards");
+    expect(b.manifest.version_code).toBe(184);
     expect(b.manifest.complete).toBe(true);
     const r = await importBundle(b);
     missionTid = r.transfer_id;
@@ -59,5 +61,13 @@ describe("transfer integrity (uniqueness, completeness, ledger, dedup)", () => {
     expect(log.filter((t) => t.kind === "mission").length).toBeGreaterThanOrEqual(2);
     expect(log.some((t) => t.transfer_id === evidenceTid && t.complete)).toBe(true);
     expect(log.some((t) => t.duplicate)).toBe(true);
+  });
+
+  it("marking a mission done flags every ledger entry for that mission_id", async () => {
+    const updated = await markMissionDone(MISSION_ID, true);
+    expect(updated).toBeGreaterThanOrEqual(3);
+    expect((await getTransfers()).every((t) => t.done)).toBe(true);
+    await markMissionDone(MISSION_ID, false);
+    expect((await getTransfers()).some((t) => t.done)).toBe(false);
   });
 });

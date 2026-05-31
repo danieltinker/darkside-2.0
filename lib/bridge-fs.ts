@@ -95,6 +95,8 @@ type BundleManifestBase = {
   transfer_id: string; // unique per content: <mission_id>.<producer>.<checksum8>
   mission_id: string;
   package_name?: string; // which app this transfer is for (ledger grouping)
+  version_code?: number; // distinguishes 2 builds of the same package_name
+  version_name?: string;
   complete: boolean; // mission: traced+required present · evidence: dynamic_confirmed + artifacts
   created_at: string;
   producer: Role;
@@ -128,6 +130,8 @@ export type TransferLogEntry = {
   kind: "mission" | "evidence";
   mission_id: string;
   package_name?: string;
+  version_code?: number;
+  version_name?: string;
   producer: Role;
   created_at: string; // when the bundle was packed (from the manifest)
   imported_at: string; // when it landed on this machine
@@ -135,6 +139,7 @@ export type TransferLogEntry = {
   checksum_ok: boolean;
   artifacts_verified: number;
   duplicate: boolean; // transfer_id already in this machine's ledger
+  done: boolean; // operator marked this mission's investigation complete
 };
 
 const LEDGER = path.join(BRIDGE, "transfers.json");
@@ -147,6 +152,16 @@ async function appendTransfer(entry: TransferLogEntry): Promise<void> {
   const log = await getTransfers();
   log.push(entry);
   await atomicWrite(LEDGER, JSON.stringify(log, null, 2));
+}
+
+// Operator marks a mission's investigation done — flags every ledger entry for
+// that mission_id. Returns how many entries were updated.
+export async function markMissionDone(missionId: string, done = true): Promise<number> {
+  const log = await getTransfers();
+  let n = 0;
+  for (const e of log) if (e.mission_id === missionId) { e.done = done; n++; }
+  if (n) await atomicWrite(LEDGER, JSON.stringify(log, null, 2));
+  return n;
 }
 
 // =====================================================================
@@ -240,6 +255,8 @@ export async function packMissionBundle(missionId: string): Promise<MissionBundl
       transfer_id: transferId(missionId, "yoda", mission.checksum),
       mission_id: missionId,
       package_name: mission.case_identity.package_name,
+      version_code: mission.case_identity.version_code,
+      version_name: mission.case_identity.version_name,
       complete: mission.flow.nodes.length > 0 && mission.flow.required_nodes.length > 0,
       created_at: new Date().toISOString(),
       producer: "yoda",
@@ -288,6 +305,8 @@ export async function packEvidenceBundle(missionId: string): Promise<EvidenceBun
       transfer_id: transferId(missionId, "vader", evidence.checksum),
       mission_id: missionId,
       package_name: linkedMission?.case_identity.package_name,
+      version_code: linkedMission?.case_identity.version_code,
+      version_name: linkedMission?.case_identity.version_name,
       complete: evidence.dynamic_confirmed && artifacts.length > 0,
       created_at: new Date().toISOString(),
       producer: "vader",
@@ -356,9 +375,11 @@ export async function importBundle(bundle: AnyBundle): Promise<ImportResult> {
     await appendTransfer({
       transfer_id: tid, kind: "mission", mission_id: mission.mission_id,
       package_name: manifest.package_name ?? mission.case_identity.package_name,
+      version_code: manifest.version_code ?? mission.case_identity.version_code,
+      version_name: manifest.version_name ?? mission.case_identity.version_name,
       producer: manifest.producer, created_at: manifest.created_at,
       imported_at: new Date().toISOString(), complete: manifest.complete,
-      checksum_ok, artifacts_verified: 0, duplicate,
+      checksum_ok, artifacts_verified: 0, duplicate, done: false,
     });
     return {
       ok: checksum_ok,
@@ -406,9 +427,10 @@ export async function importBundle(bundle: AnyBundle): Promise<ImportResult> {
 
   await appendTransfer({
     transfer_id: tid, kind: "evidence", mission_id: evidence.mission_id,
-    package_name: manifest.package_name, producer: manifest.producer,
+    package_name: manifest.package_name, version_code: manifest.version_code,
+    version_name: manifest.version_name, producer: manifest.producer,
     created_at: manifest.created_at, imported_at: new Date().toISOString(),
-    complete: manifest.complete, checksum_ok, artifacts_verified: verified, duplicate,
+    complete: manifest.complete, checksum_ok, artifacts_verified: verified, duplicate, done: false,
   });
 
   return {
