@@ -10,10 +10,15 @@ import { pointsForStrength } from "@/brain/types";
 import type {
   BrainModel, CategoryView, RubricView, SignalView,
   AttackGraphView, AttackNodeView, AttackEdgeView, NodeKind, EdgeRelation,
+  Provenance,
 } from "@/brain/types";
 import type { GraphGem } from "@/lib/gems/types";
 
 const GEMS = path.join(process.cwd(), "gems");
+
+const PROVENANCE_BY_ID: Record<string, Provenance> = Object.fromEntries(
+  Object.values(RUBRIC_ID_MAP).map((r) => [r.id, r.provenance]),
+);
 
 // Which traced graphs exist today, keyed by rubric_id → the chain they belong to.
 const TRACED: Record<string, { chainName: string }> = {
@@ -81,8 +86,7 @@ export function loadModel(): BrainModel {
   const tracedView = gemToAttackGraph(tracedGem);
 
   const rubrics: RubricView[] = RISKWARE_TAXONOMY.map((tr) => {
-    const idEntry = Object.values(RUBRIC_ID_MAP).find((r) => r.id === tr.id)!;
-    const provenance = idEntry.provenance;
+    const provenance: Provenance = PROVENANCE_BY_ID[tr.id] ?? "spec_only";
     const ry = provenance === "gem" ? readRubricYaml(tr.id) : undefined;
     const requiredBoundaries = ry?.required_behavioral_boundaries ?? [];
 
@@ -112,6 +116,19 @@ export function loadModel(): BrainModel {
       signals,
     };
   });
+
+  // Fail loudly if a TRACED entry's chainName drifted from the taxonomy signal
+  // name (otherwise every signal would silently fall back to a mock).
+  const tracedCount = rubrics
+    .flatMap((r) => r.signals)
+    .filter((s) => s.attackGraph.source === "traced").length;
+  const expectedTracedCount = Object.keys(TRACED).length;
+  if (tracedCount !== expectedTracedCount) {
+    throw new Error(
+      `loadModel: expected ${expectedTracedCount} traced graph(s) but resolved ${tracedCount}. ` +
+      `Check TRACED chainName values match the taxonomy signal names exactly.`,
+    );
+  }
 
   const category: CategoryView = {
     id: gemCat.category_id,
