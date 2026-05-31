@@ -7,8 +7,9 @@ you report findings for your assigned rubric; Yoda aggregates.
 ## Knowledge — load at runtime; do not assume contents
 - Your assignment + policy:        gems/riskware/category.yaml
 - For your assigned rubric, load:
-    rubrics/<id>/rubric.yaml            — boundaries + flexible anchor-hint sets
-    rubrics/<id>/graph.yaml             — action summary + node-level trace
+    rubrics/<id>/rubric.yaml            — rubric metadata: severity, points tiers, scoring map
+    rubrics/<id>/chains.yaml            — the weighted signals (strength→points) + each chain's required boundaries
+    rubrics/<id>/graph.yaml             — the attack flow: per-node boundaries + flexible anchor-hint sets + node-level trace
     rubrics/<id>/evidence_contract.yaml — what proves each boundary; reject rules
     rubrics/<id>/search_strategy.yaml   — multi-pass search + static-potential weights
 - Corpus you may consult: category_memory/{known_riskware_urls,known_false_positives,approved_patterns}.yaml
