@@ -1,37 +1,19 @@
-import type { FlowNode } from "./contract";
-import { mmpCloakingGraph } from "./flow";
-import {
-  missionContext,
-  evidenceReturn,
-  extractedPayloads,
-  MISSION_ID,
-} from "./mock";
+import type { FlowNode, CaseIdentity, NodeEvidence, ExtractedPayload } from "./contract";
 
 // =====================================================================
-// Filesystem derivation — projects the contract onto the on-disk layout a
-// real two-machine build would lay down. Nothing new is invented here: the
-// trees are derived from the same flow/evidence/bridge data the rest of the
-// app uses.
+// Filesystem derivation — projects the contract onto the on-disk layout a real
+// two-machine build lays down, FOR A GIVEN MISSION. Nothing is invented: the
+// trees are derived from the selected mission's flow + evidence + bridge state,
+// so the explorer works for ANY package/version, not a single hardcoded one.
 //
 //   YODA (static / mission control)  →  decompiled APK sources = static evidence
 //   PIXELBRIDGE (shared transport)   →  the four mailboxes + artifacts store
 //   DARTH VADER (dynamic lab)        →  device runtime = dynamic evidence source
-//
-// `present` is gated on the live session lifecycle so files appear on the
-// bridge exactly as the mission/evidence flow runs.
 // =====================================================================
 
 export type FsKind =
-  | "dir"
-  | "apk"
-  | "source"
-  | "native"
-  | "json"
-  | "frida"
-  | "http"
-  | "screenshot"
-  | "payload"
-  | "proc";
+  | "dir" | "apk" | "source" | "native" | "json"
+  | "frida" | "http" | "screenshot" | "payload" | "proc";
 
 export type FsDetail =
   | { type: "source"; filePath: string }
@@ -46,20 +28,16 @@ export type FsNode = {
   name: string;
   path: string; // unique key + selection id
   kind: FsKind;
-  present: boolean; // exists yet, given session state (dirs are always structural)
-  meta?: string; // small right-aligned annotation
-  nodeIds?: string[]; // graph nodes this file backs
-  detail?: FsDetail; // what the detail pane renders
+  present: boolean;
+  meta?: string;
+  nodeIds?: string[];
+  detail?: FsDetail;
   children?: FsNode[];
 };
 
 export type MachineSide = "yoda" | "bridge" | "vader";
-
 export type Filesystems = Record<MachineSide, FsNode>;
 
-// Real per-mailbox disk presence, derived from each machine's bridge state.
-// In an airgap these are four independent truths — a file can sit in Yoda's
-// outbox long before anyone carries it into Vader's inbox.
 export type BridgePhase = {
   missionInYodaOutbox: boolean;
   missionInVaderInbox: boolean;
@@ -67,47 +45,48 @@ export type BridgePhase = {
   evidenceInYodaInbox: boolean;
 };
 
+// Everything the trees need for ONE mission — sourced from the selected mission's
+// on-disk state (mission.flow + evidence), so it scales across packages/versions.
+export type FsInput = {
+  phase: BridgePhase;
+  missionId: string;
+  identity: CaseIdentity;
+  flowNodes: FlowNode[];
+  nodeEvidence: NodeEvidence[];
+  payloads: ExtractedPayload[];
+};
+
 const dir = (name: string, path: string, children: FsNode[], meta?: string): FsNode => ({
-  name,
-  path,
-  kind: "dir",
-  present: true,
-  meta,
-  children,
+  name, path, kind: "dir", present: true, meta, children,
 });
 
 function basename(p: string): string {
   return p.split("/").filter(Boolean).pop() ?? p;
 }
 
-// ---- Yoda: build the decompiled sources subtree from node signatures ----
-function buildSourcesTree(base: string): FsNode {
-  // Group nodes by file_path — one file can back several nodes.
+// ---- Yoda: decompiled sources from this mission's node signatures ----
+function buildSourcesTree(base: string, flowNodes: FlowNode[]): FsNode {
   const byFile = new Map<string, FlowNode[]>();
-  for (const n of mmpCloakingGraph.nodes) {
+  for (const n of flowNodes) {
     const fp = n.signature?.file_path;
     if (!fp) continue; // role-level nodes carry no per-app source file
     const list = byFile.get(fp) ?? [];
     list.push(n);
     byFile.set(fp, list);
   }
-
   const root = dir("sources", `${base}/sources`, [], "decompiled");
-
   for (const [filePath, nodes] of byFile) {
-    // strip the leading "sources/" segment — root already represents it
     const segments = filePath.split("/").slice(1);
     let cursor = root;
     let acc = root.path;
     segments.forEach((seg, i) => {
       acc = `${acc}/${seg}`;
-      const isLeaf = i === segments.length - 1;
-      if (isLeaf) {
+      if (i === segments.length - 1) {
         cursor.children!.push({
           name: seg,
           path: acc,
           kind: "source",
-          present: true, // static analysis is done before the flow runs
+          present: true,
           meta: nodes.map((n) => `:${n.signature?.line ?? "?"}`).join(" "),
           nodeIds: nodes.map((n) => n.node_id),
           detail: { type: "source", filePath },
@@ -125,15 +104,14 @@ function buildSourcesTree(base: string): FsNode {
   return root;
 }
 
-function buildYoda(): FsNode {
-  const ws = `yoda/workspace/${MISSION_ID}`;
-  const id = missionContext.case_identity;
+function buildYoda(missionId: string, id: CaseIdentity, flowNodes: FlowNode[]): FsNode {
+  const ws = `yoda/workspace/${missionId}`;
   return dir("yoda", "yoda", [
     dir(
       "workspace",
       "yoda/workspace",
       [
-        dir(MISSION_ID, ws, [
+        dir(missionId, ws, [
           {
             name: `${id.package_name}-${id.version_code}.apk`,
             path: `${ws}/${id.package_name}-${id.version_code}.apk`,
@@ -142,7 +120,7 @@ function buildYoda(): FsNode {
             meta: `v${id.version_name}`,
             detail: { type: "apk" },
           },
-          buildSourcesTree(ws),
+          buildSourcesTree(ws, flowNodes),
         ]),
       ],
       "static analysis",
@@ -151,17 +129,19 @@ function buildYoda(): FsNode {
 }
 
 // ---- PixelBridge: the four mailboxes + the artifacts store -------------
-function buildBridge(p: BridgePhase): FsNode {
-  // Artifacts are materialized by Vader and physically exist wherever the
-  // evidence message has landed (Vader's outbox and/or Yoda's inbox).
+function buildBridge(
+  p: BridgePhase,
+  missionId: string,
+  nodeEvidence: NodeEvidence[],
+  payloads: ExtractedPayload[],
+): FsNode {
   const artifactsPresent = p.evidenceInVaderOutbox || p.evidenceInYodaInbox;
-  const art = `bridge/artifacts/${MISSION_ID}`;
+  const art = `bridge/artifacts/${missionId}`;
 
-  // Group Vader's artifacts by kind from the EvidenceReturn.
   const frida: FsNode[] = [];
   const http: FsNode[] = [];
   const shots: FsNode[] = [];
-  for (const ne of evidenceReturn.node_evidence) {
+  for (const ne of nodeEvidence) {
     for (const a of ne.artifacts) {
       const leaf: FsNode = {
         name: basename(a.path),
@@ -178,7 +158,7 @@ function buildBridge(p: BridgePhase): FsNode {
     }
   }
 
-  const payloadLeaves: FsNode[] = extractedPayloads.map((pl) => ({
+  const payloadLeaves: FsNode[] = payloads.map((pl) => ({
     name: basename(pl.storage_path),
     path: `${art}/payloads/${basename(pl.storage_path)}`,
     kind: "payload",
@@ -189,52 +169,26 @@ function buildBridge(p: BridgePhase): FsNode {
   }));
 
   const missionLeaf = (path: string, present: boolean): FsNode => ({
-    name: `${MISSION_ID}.MissionContext.json`,
-    path,
-    kind: "json",
-    present,
-    meta: present ? "stored" : "empty",
+    name: `${missionId}.MissionContext.json`,
+    path, kind: "json", present, meta: present ? "stored" : "empty",
     detail: { type: "message", which: "mission" },
   });
   const evidenceLeaf = (path: string, present: boolean): FsNode => ({
-    name: `${MISSION_ID}.EvidenceReturn.json`,
-    path,
-    kind: "json",
-    present,
-    meta: present ? "stored" : "empty",
+    name: `${missionId}.EvidenceReturn.json`,
+    path, kind: "json", present, meta: present ? "stored" : "empty",
     detail: { type: "message", which: "evidence" },
   });
 
   return dir("bridge", "bridge", [
-    dir(
-      "yoda_outbox",
-      "bridge/yoda_outbox",
-      [missionLeaf("bridge/yoda_outbox/m.MissionContext.json", p.missionInYodaOutbox)],
-      "A→B",
-    ),
-    dir(
-      "vader_inbox",
-      "bridge/vader_inbox",
-      [missionLeaf("bridge/vader_inbox/m.MissionContext.json", p.missionInVaderInbox)],
-      "carried in",
-    ),
-    dir(
-      "vader_outbox",
-      "bridge/vader_outbox",
-      [evidenceLeaf("bridge/vader_outbox/m.EvidenceReturn.json", p.evidenceInVaderOutbox)],
-      "B→A",
-    ),
-    dir(
-      "yoda_inbox",
-      "bridge/yoda_inbox",
-      [evidenceLeaf("bridge/yoda_inbox/m.EvidenceReturn.json", p.evidenceInYodaInbox)],
-      "carried back",
-    ),
+    dir("yoda_outbox", "bridge/yoda_outbox", [missionLeaf(`bridge/yoda_outbox/${missionId}.MissionContext.json`, p.missionInYodaOutbox)], "A→B"),
+    dir("vader_inbox", "bridge/vader_inbox", [missionLeaf(`bridge/vader_inbox/${missionId}.MissionContext.json`, p.missionInVaderInbox)], "carried in"),
+    dir("vader_outbox", "bridge/vader_outbox", [evidenceLeaf(`bridge/vader_outbox/${missionId}.EvidenceReturn.json`, p.evidenceInVaderOutbox)], "B→A"),
+    dir("yoda_inbox", "bridge/yoda_inbox", [evidenceLeaf(`bridge/yoda_inbox/${missionId}.EvidenceReturn.json`, p.evidenceInYodaInbox)], "carried back"),
     dir(
       "artifacts",
       "bridge/artifacts",
       [
-        dir(MISSION_ID, art, [
+        dir(missionId, art, [
           dir("frida", `${art}/frida`, frida, `${frida.length}`),
           dir("http", `${art}/http`, http, `${http.length}`),
           dir("screenshots", `${art}/screenshots`, shots, `${shots.length}`),
@@ -247,12 +201,31 @@ function buildBridge(p: BridgePhase): FsNode {
 }
 
 // ---- Darth Vader: the on-device runtime (dynamic evidence source) ------
-function buildVader(p: BridgePhase): FsNode {
-  // The device shows runtime artifacts once Vader has run (evidence produced).
+function buildVader(
+  p: BridgePhase,
+  id: CaseIdentity,
+  payloads: ExtractedPayload[],
+): FsNode {
   const ran = p.evidenceInVaderOutbox;
-  const id = missionContext.case_identity;
-  const dropper = extractedPayloads[0];
+  const dropper = payloads[0];
   const pid = "14233";
+
+  // device app-private files only exist once a dropper was pulled at runtime
+  const filesDir: FsNode[] = dropper
+    ? [
+        dir(".cl", `vader/device/data/data/${id.package_name}/files/.cl`, [
+          {
+            name: basename(dropper.source_path_on_device),
+            path: dropper.source_path_on_device,
+            kind: "payload",
+            present: ran,
+            meta: "dropper",
+            nodeIds: dropper.found_at_node ? [dropper.found_at_node] : undefined,
+            detail: { type: "payload", payloadId: dropper.payload_id },
+          },
+        ]),
+      ]
+    : [];
 
   return dir("vader", "vader", [
     dir(
@@ -274,32 +247,13 @@ function buildVader(p: BridgePhase): FsNode {
           ]),
           dir("data", "vader/device/data/data", [
             dir(id.package_name, `vader/device/data/data/${id.package_name}`, [
-              dir("files", `vader/device/data/data/${id.package_name}/files`, [
-                dir(".cl", `vader/device/data/data/${id.package_name}/files/.cl`, [
-                  {
-                    name: basename(dropper.source_path_on_device),
-                    path: dropper.source_path_on_device,
-                    kind: "payload",
-                    present: ran,
-                    meta: "dropper",
-                    nodeIds: dropper.found_at_node ? [dropper.found_at_node] : undefined,
-                    detail: { type: "payload", payloadId: dropper.payload_id },
-                  },
-                ]),
-              ]),
+              dir("files", `vader/device/data/data/${id.package_name}/files`, filesDir),
             ]),
           ]),
         ]),
         dir("proc", "vader/device/proc", [
           dir(pid, `vader/device/proc/${pid}`, [
-            {
-              name: "maps",
-              path: `vader/device/proc/${pid}/maps`,
-              kind: "proc",
-              present: ran,
-              meta: "frida",
-              detail: { type: "proc" },
-            },
+            { name: "maps", path: `vader/device/proc/${pid}/maps`, kind: "proc", present: ran, meta: "frida", detail: { type: "proc" } },
           ]),
         ]),
       ],
@@ -308,8 +262,12 @@ function buildVader(p: BridgePhase): FsNode {
   ]);
 }
 
-export function buildFilesystems(p: BridgePhase): Filesystems {
-  return { yoda: buildYoda(), bridge: buildBridge(p), vader: buildVader(p) };
+export function buildFilesystems(input: FsInput): Filesystems {
+  return {
+    yoda: buildYoda(input.missionId, input.identity, input.flowNodes),
+    bridge: buildBridge(input.phase, input.missionId, input.nodeEvidence, input.payloads),
+    vader: buildVader(input.phase, input.identity, input.payloads),
+  };
 }
 
 // Walk a tree to resolve a selection path → node.
