@@ -3,7 +3,7 @@ import { Handle, Position } from "@xyflow/react";
 export function RubricNode({ data }: { data: any }) {
   const specOnly = data.provenance === "spec_only";
   return (
-    <div className={`w-[240px] rounded-xl border p-3 shadow ${specOnly ? "border-dashed border-zinc-500/60 bg-bg-elevated/50 opacity-80" : "border-accent-violet/60 bg-bg-elevated/90"}`}>
+    <div className={`w-[240px] rounded-xl border p-3 shadow ${specOnly ? "border-dashed border-zinc-500/60 bg-bg-card/50 opacity-80" : "border-accent-violet/60 bg-bg-card/90"}`}>
       <div className="flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-wider text-accent-violet">rubric</span>
         <span className={`rounded px-1.5 py-0.5 text-[9px] ${specOnly ? "bg-zinc-600/30 text-zinc-300" : "bg-accent-violet/20 text-accent-violet"}`}>

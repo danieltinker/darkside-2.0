@@ -2,7 +2,7 @@ import { Handle, Position } from "@xyflow/react";
 
 export function CategoryNode({ data }: { data: any }) {
   return (
-    <div className="w-[240px] rounded-xl border border-accent-cyan/60 bg-bg-elevated/90 p-3 shadow-lg">
+    <div className="w-[240px] rounded-xl border border-accent-cyan/60 bg-bg-card/90 p-3 shadow-lg">
       <div className="text-[10px] uppercase tracking-wider text-accent-cyan">category</div>
       <div className="text-sm font-semibold">{data.name}</div>
       <div className="mt-1 text-[11px] text-zinc-400">v{data.version} · {data.status}</div>
