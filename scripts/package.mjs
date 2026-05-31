@@ -61,6 +61,11 @@ npm run build
 npm start            # http://localhost:3000  (PORT=… to change)
 \`\`\`
 Requires Node ≥ 20.11. No Python/venv. See README.md for details.
+
+## ▶ Bring this machine to production (plug in real services)
+Read **\`docs/SETUP-PROMPT-${role.toUpperCase()}.md\`** — the setup prompt that maps every mocked
+seam (queue/decompile/agent on Yoda · Frida/HTTP-Toolkit/NordVPN evidence on Vader) to the real
+service to wire in, while preserving the cross-machine contract. Hand it to your engineer or coding agent.
 `;
   if (role === "yoda") {
     return (

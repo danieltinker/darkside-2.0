@@ -46,6 +46,16 @@ describe("transfer integrity (uniqueness, completeness, ledger, dedup)", () => {
     expect(r.duplicate).toBe(true);
   });
 
+  it("a tampered bundle is REJECTED wholesale (verify-then-write — nothing persisted)", async () => {
+    const b = (await packEvidenceBundle(MISSION_ID))!;
+    (b.evidence as { iterations: number }).iterations = 9999; // mutate after packing → checksum no longer matches
+    const r = await importBundle(b);
+    expect(r.ok).toBe(false);
+    expect(r.checksum_ok).toBe(false);
+    expect(r.artifacts_written).toBe(0);
+    expect(r.errors.some((e) => /rejected|nothing written/i.test(e))).toBe(true);
+  });
+
   it("an evidence bundle has its own transfer_id, distinct from the mission's", async () => {
     const b = (await packEvidenceBundle(MISSION_ID))!;
     expect(b.manifest.transfer_id).toMatch(/^m_8821\.vader\.[0-9a-f]{8}$/);

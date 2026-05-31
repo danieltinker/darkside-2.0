@@ -365,13 +365,17 @@ export async function importBundle(bundle: AnyBundle): Promise<ImportResult> {
   if (bundle.manifest.bundle_type === "mission") {
     const { mission, manifest } = bundle as MissionBundle;
     const checksum_ok = verifyChecksum(mission);
-    if (!checksum_ok) errors.push("MissionContext checksum mismatch");
+    if (!checksum_ok) errors.push("MissionContext checksum mismatch — rejected, nothing written");
     const tid = manifestTransferId(manifest, mission.checksum);
     const duplicate = (await getTransfers()).some((t) => t.transfer_id === tid);
-    await atomicWrite(
-      path.join(BRIDGE, "vader_inbox", MISSION_FILE(mission.mission_id)),
-      JSON.stringify(mission, null, 2),
-    );
+    // VERIFY-THEN-WRITE: only persist a verified mission; a bad carry is rejected
+    // wholesale (still recorded in the ledger so the operator sees the failed transfer).
+    if (checksum_ok) {
+      await atomicWrite(
+        path.join(BRIDGE, "vader_inbox", MISSION_FILE(mission.mission_id)),
+        JSON.stringify(mission, null, 2),
+      );
+    }
     await appendTransfer({
       transfer_id: tid, kind: "mission", mission_id: mission.mission_id,
       package_name: manifest.package_name ?? mission.case_identity.package_name,
@@ -403,43 +407,53 @@ export async function importBundle(bundle: AnyBundle): Promise<ImportResult> {
   const tid = manifestTransferId(manifest, evidence.checksum);
   const duplicate = (await getTransfers()).some((t) => t.transfer_id === tid);
 
-  let written = 0;
+  // VERIFY everything FIRST (no writes): the message checksum + every artifact sha256.
+  const decoded = artifacts.map((a) => ({
+    a,
+    buf: a.encoding === "base64" ? Buffer.from(a.data, "base64") : Buffer.from(a.data, "utf8"),
+  }));
   let verified = 0;
-  for (const a of artifacts) {
-    const buf =
-      a.encoding === "base64"
-        ? Buffer.from(a.data, "base64")
-        : Buffer.from(a.data, "utf8");
+  for (const { a, buf } of decoded) {
     if (realSha256(buf) === a.sha256) verified++;
     else errors.push(`artifact sha256 mismatch: ${a.path}`);
-    await atomicWrite(resolveArtifact(a.path), buf);
-    written++;
   }
+  const ok = checksum_ok && verified === artifacts.length;
 
-  await atomicWrite(
-    resolveArtifact(`bridge/artifacts/${evidence.mission_id}/_content.json`),
-    JSON.stringify(artifactContent, null, 2),
-  );
-  await atomicWrite(
-    path.join(BRIDGE, "yoda_inbox", EVIDENCE_FILE(evidence.mission_id)),
-    JSON.stringify(evidence, null, 2),
-  );
+  // ATOMIC WRITE: only persist a fully-verified bundle. A bad carry writes nothing
+  // (no partial/corrupt state) but is still recorded in the ledger as a failed transfer.
+  let written = 0;
+  if (ok) {
+    for (const { a, buf } of decoded) {
+      await atomicWrite(resolveArtifact(a.path), buf);
+      written++;
+    }
+    await atomicWrite(
+      resolveArtifact(`bridge/artifacts/${evidence.mission_id}/_content.json`),
+      JSON.stringify(artifactContent, null, 2),
+    );
+    await atomicWrite(
+      path.join(BRIDGE, "yoda_inbox", EVIDENCE_FILE(evidence.mission_id)),
+      JSON.stringify(evidence, null, 2),
+    );
+  } else {
+    errors.push("evidence bundle rejected — nothing written");
+  }
 
   await appendTransfer({
     transfer_id: tid, kind: "evidence", mission_id: evidence.mission_id,
     package_name: manifest.package_name, version_code: manifest.version_code,
     version_name: manifest.version_name, producer: manifest.producer,
     created_at: manifest.created_at, imported_at: new Date().toISOString(),
-    complete: manifest.complete, checksum_ok, artifacts_verified: verified, duplicate, done: false,
+    complete: manifest.complete && ok, checksum_ok, artifacts_verified: verified, duplicate, done: false,
   });
 
   return {
-    ok: checksum_ok && verified === artifacts.length,
+    ok,
     kind: "evidence",
     transfer_id: tid,
     mission_id: evidence.mission_id,
     package_name: manifest.package_name,
-    complete: manifest.complete,
+    complete: manifest.complete && ok,
     duplicate,
     checksum_ok,
     artifacts_written: written,
